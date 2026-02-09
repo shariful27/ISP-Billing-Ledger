@@ -101,66 +101,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
   return (
     <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500 px-1 sm:px-0">
-      {/* Payment Selection Modal */}
-      {paymentSelection && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[210] flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-200">
-            <div className="text-center mb-6 sm:mb-8">
-              <h3 className="text-lg font-bold text-slate-800 tracking-tight">পেমেন্ট মাধ্যম নির্বাচন করুন</h3>
-              <p className="text-slate-400 text-xs mt-1 font-medium italic">{paymentSelection.name} • ৳{paymentSelection.amount}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              <button 
-                onClick={handleCashPayment}
-                className="flex items-center justify-center gap-3 py-3.5 sm:py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                ক্যাশ পেমেন্ট
-              </button>
-              
-              <button 
-                onClick={handleBkashSelection}
-                className="flex items-center justify-center gap-3 py-3.5 sm:py-4 bg-[#e2136e] hover:bg-[#c61060] text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-              >
-                <div className="bg-white px-2 py-0.5 rounded text-[10px] text-[#e2136e] font-black italic tracking-tighter">bKash</div>
-                বিকাশ পেমেন্ট
-              </button>
-
-              <button 
-                onClick={handleFreePayment}
-                className="flex items-center justify-center gap-3 py-3 sm:py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>
-                ফ্রি বিল
-              </button>
-              
-              <div className="pt-2 sm:pt-3">
-                <button 
-                  onClick={() => setPaymentSelection(null)}
-                  className="w-full py-3 bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold rounded-xl transition-all active:scale-95 text-xs flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                  ফিরে যান
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* bKash Modal */}
-      <BkashModal 
-        isOpen={!!bkashData} 
-        onClose={() => setBkashData(null)} 
-        customerName={bkashData?.name || ''}
-        amount={bkashData?.amount || 0}
-        onConfirm={(trxId) => {
-          if (bkashData) {
-            onQuickPay(bkashData.id, bkashData.monthKey, 'bKash', trxId);
-          }
-        }}
-      />
-
       {/* Stats Summary Panel */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4 no-print">
         <div className="executive-card p-3 sm:p-5 border-l-4 border-blue-600 bg-white">
@@ -208,8 +148,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto sm:overflow-visible pb-1 sm:pb-0">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 flex-shrink-0">
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 overflow-x-auto">
             {[
               {id: 'all', label: 'সব'},
               {id: 'paid', label: 'পেইড'},
@@ -237,9 +177,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
       </div>
 
       {/* Table Section */}
-      <div className="executive-card overflow-hidden">
+      <div className="executive-card overflow-hidden bg-white">
         {/* ENHANCED PRINT REPORT HEADER */}
-        <div className="hidden print:block p-8 bg-white">
+        <div className="hidden print:block p-8">
           <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -267,7 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <p className="text-lg font-bold text-emerald-600">৳{stats.paid.toLocaleString()}</p>
             </div>
             <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">আদায়ের হার</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">পেইড</p>
               <p className="text-lg font-bold text-blue-600">{stats.paidCount} জন</p>
             </div>
             <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
@@ -275,81 +215,110 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <p className="text-lg font-bold text-amber-600">{stats.partialCount} জন</p>
             </div>
             <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">বকেয়া</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট বকেয়া</p>
               <p className="text-lg font-bold text-red-600">৳{stats.due.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-full">
+          <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-full">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
-                <th className="px-4 sm:px-6 py-3 sm:py-4">গ্রাহকের নাম</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">মাসিক বিল</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">অবস্থা</th>
-                <th className="px-4 sm:px-6 py-3 sm:py-4 text-right no-print">অ্যাকশন</th>
+              <tr className="bg-slate-100 border-b border-slate-200 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
+                <th className="px-4 sm:px-6 py-4">গ্রাহকের তথ্য</th>
+                <th className="px-3 py-4 text-center">নির্ধারিত বিল</th>
+                <th className="px-3 py-4 text-center">পরিশোধিত</th>
+                <th className="px-3 py-4 text-center">বকেয়া</th>
+                <th className="px-3 py-4 text-center">অবস্থা ও মাধ্যম</th>
+                <th className="px-4 py-4 text-right no-print">অ্যাকশন</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
+            <tbody className="divide-y divide-slate-200">
               {filteredCustomers.length === 0 ? (
-                <tr><td colSpan={4} className="py-20 text-center text-slate-400 font-medium">কোনো তথ্য পাওয়া যায়নি</td></tr>
+                <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-medium">কোনো তথ্য পাওয়া যায়নি</td></tr>
               ) : (
                 filteredCustomers.map((c) => {
                   const rec = c.records[currentMonthKey];
                   const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
                   const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
                   const isDue = !rec || (rec.paidAmount === 0);
+                  const paidVal = rec ? rec.paidAmount : 0;
+                  const dueVal = rec ? rec.due : c.monthlyBill;
                   
                   return (
                     <tr 
                       key={c.id} 
                       onClick={() => onSelectCustomer(c.id)} 
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group print:hover:bg-transparent"
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
                     >
-                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <div className="min-w-0">
-                          <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">{c.name}</p>
-                          <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">{c.connectionName} • {c.mobile}</p>
+                          <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 truncate">{c.name}</p>
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">{c.connectionName} • {c.mobile}</p>
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
-                        <span className="text-[11px] sm:text-sm font-bold text-slate-700">৳{c.monthlyBill}</span>
+                      <td className="px-3 py-4 text-center">
+                        <span className="text-[11px] sm:text-sm font-bold text-slate-600">৳{c.monthlyBill}</span>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
-                        <span className={`status-badge border text-[9px] sm:text-[10px] whitespace-nowrap ${
-                          isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                          isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                          'bg-red-50 text-red-600 border-red-200'
-                        }`}>
-                           {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক পরিশোধ' : 'বকেয়া'}
+                      <td className="px-3 py-4 text-center">
+                        <span className={`text-[11px] sm:text-sm font-bold ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                          ৳{paidVal}
                         </span>
-                        {(isPaid || isPartial) && rec?.paymentMethod && (
-                           <p className="hidden print:block text-[7px] text-slate-400 mt-0.5 uppercase tracking-tighter">
-                             {rec.paymentMethod === 'Cash' ? 'নগদ' : rec.paymentMethod === 'bKash' ? 'বিকাশ' : 'ফ্রি'}
-                             {isPartial && ` (৳${rec.paidAmount})`}
-                           </p>
-                        )}
-                        {isPartial && !rec?.paymentMethod && (
-                           <p className="hidden print:block text-[7px] text-amber-600 mt-0.5">জমা: ৳{rec.paidAmount}</p>
-                        )}
                       </td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 no-print text-right">
-                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                      <td className="px-3 py-4 text-center">
+                        <span className={`text-[11px] sm:text-sm font-bold ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                          ৳{dueVal}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`status-badge border text-[8px] sm:text-[9px] whitespace-nowrap leading-none py-1 px-2 ${
+                            isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                            isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                            'bg-red-50 text-red-600 border-red-200'
+                          }`}>
+                             {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক জমা' : 'বকেয়া'}
+                          </span>
+                          
+                          {/* STYLED PAYMENT METHOD LABELS */}
+                          {rec?.paymentMethod && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {rec.paymentMethod === 'Cash' && (
+                                <span className="flex items-center gap-0.5 text-[8px] font-black text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                                  <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                                  ক্যাশ
+                                </span>
+                              )}
+                              {rec.paymentMethod === 'bKash' && (
+                                <span className="flex items-center gap-0.5 text-[8px] font-black text-[#e2136e] uppercase bg-pink-50 px-1.5 py-0.5 rounded border border-pink-100">
+                                  <span className="italic tracking-tighter">b</span>বিকাশ
+                                </span>
+                              )}
+                              {rec.paymentMethod === 'Free' && (
+                                <span className="flex items-center gap-0.5 text-[8px] font-black text-indigo-600 uppercase bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                  <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" /><path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" /></svg>
+                                  ফ্রি
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 no-print text-right">
+                        <div className="flex items-center justify-end gap-2">
                           {!isPaid && (
                             <button 
                               onClick={(e) => handlePaymentInitiation(e, c)}
-                              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] sm:text-[10px] font-bold shadow-sm transition-all whitespace-nowrap"
+                              className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all"
                             >
-                              বিল
+                              বিল জমা
                             </button>
                           )}
                           <button 
                             onClick={(e) => handleDeleteClick(e, c)}
                             className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                            title="মুছে ফেলুন"
                           >
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
                       </td>
@@ -367,27 +336,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <div className="w-32 h-px bg-slate-300 mb-2"></div>
               <span>কর্তৃপক্ষের স্বাক্ষর</span>
            </div>
-           <div className="text-[8px] italic opacity-50">ISP লেজার প্রো - জেনারেটেড রিপোর্ট</div>
+           <div className="text-[8px] italic opacity-50">ISP লেজার প্রো - প্রফেশনাল রিপোর্টিং সিস্টেম</div>
            <div className="text-center">
               <div className="w-32 h-px bg-slate-300 mb-2"></div>
-              <span>সিল ও স্বাক্ষর</span>
+              <span>সিল ও তারিখ</span>
            </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Payment Selection Modal */}
+      {paymentSelection && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[210] flex items-center justify-center p-4 no-print">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">পেমেন্ট মাধ্যম নির্বাচন করুন</h3>
+              <p className="text-slate-400 text-xs mt-1 font-medium italic">{paymentSelection.name} • ৳{paymentSelection.amount}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <button onClick={handleCashPayment} className="flex items-center justify-center gap-3 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all active:scale-95">ক্যাশ পেমেন্ট</button>
+              <button onClick={handleBkashSelection} className="flex items-center justify-center gap-3 py-4 bg-[#e2136e] hover:bg-[#c61060] text-white font-bold rounded-xl transition-all active:scale-95">বিকাশ পেমেন্ট</button>
+              <button onClick={handleFreePayment} className="flex items-center justify-center gap-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all active:scale-95">ফ্রি বিল</button>
+              <button onClick={() => setPaymentSelection(null)} className="w-full py-3 mt-2 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs">ফিরে যান</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* bKash Modal & Delete Modal remains the same */}
+      <BkashModal 
+        isOpen={!!bkashData} 
+        onClose={() => setBkashData(null)} 
+        customerName={bkashData?.name || ''}
+        amount={bkashData?.amount || 0}
+        onConfirm={(trxId) => {
+          if (bkashData) {
+            onQuickPay(bkashData.id, bkashData.monthKey, 'bKash', trxId);
+          }
+        }}
+      />
+
       {customerToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl border">
             <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
-                <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-800">মুছে ফেলবেন?</h3>
-              <p className="text-slate-500 text-[11px] sm:text-sm mt-2 mb-6">"{customerToDelete.name}" এর সকল ডাটা মুছে যাবে।</p>
+              <h3 className="text-base font-bold text-slate-800">মুছে ফেলবেন?</h3>
+              <p className="text-slate-500 text-[11px] mt-2 mb-6">"{customerToDelete.name}" এর সকল ডাটা মুছে যাবে।</p>
               <div className="flex gap-2 w-full">
-                <button onClick={() => setCustomerToDelete(null)} className="flex-1 py-2 bg-slate-100 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-95">না</button>
-                <button onClick={() => { onDeleteCustomer(customerToDelete.id); setCustomerToDelete(null); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95">হ্যাঁ</button>
+                <button onClick={() => setCustomerToDelete(null)} className="flex-1 py-2 bg-slate-100 rounded-lg font-bold text-xs">না</button>
+                <button onClick={() => { onDeleteCustomer(customerToDelete.id); setCustomerToDelete(null); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold text-xs">হ্যাঁ</button>
               </div>
             </div>
           </div>
