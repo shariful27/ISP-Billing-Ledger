@@ -11,7 +11,7 @@ interface DashboardProps {
   onDeleteCustomer: (id: string) => void;
 }
 
-type FilterStatus = 'all' | 'paid' | 'due';
+type FilterStatus = 'all' | 'paid' | 'partial' | 'due';
 
 export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustomer, onAddCustomer, onQuickPay, onDeleteCustomer }) => {
   const now = new Date();
@@ -39,9 +39,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
     
     const rec = c.records[currentMonthKey];
     const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
+    const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
+    const isDue = !rec || (rec.paidAmount === 0);
 
     if (statusFilter === 'paid') return matchesSearch && isPaid;
-    if (statusFilter === 'due') return matchesSearch && !isPaid;
+    if (statusFilter === 'partial') return matchesSearch && isPartial;
+    if (statusFilter === 'due') return matchesSearch && isDue;
     return matchesSearch;
   });
 
@@ -51,13 +54,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
       acc.paid += rec.paidAmount;
       acc.due += rec.due;
       if (rec.due <= 0 && rec.paidAmount > 0) acc.paidCount++;
+      else if (rec.paidAmount > 0 && rec.due > 0) acc.partialCount++;
       else acc.dueCount++;
     } else {
       acc.due += c.monthlyBill;
       acc.dueCount++;
     }
     return acc;
-  }, { paid: 0, due: 0, paidCount: 0, dueCount: 0 });
+  }, { paid: 0, due: 0, paidCount: 0, partialCount: 0, dueCount: 0 });
 
   const handlePaymentInitiation = (e: React.MouseEvent, c: Customer) => {
     e.stopPropagation(); 
@@ -158,7 +162,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
       />
 
       {/* Stats Summary Panel */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 no-print">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4 no-print">
         <div className="executive-card p-3 sm:p-5 border-l-4 border-blue-600 bg-white">
           <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">মোট আদায়</p>
           <h3 className="text-lg sm:text-2xl font-bold text-slate-800">৳{stats.paid.toLocaleString()}</h3>
@@ -168,11 +172,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           <h3 className="text-lg sm:text-2xl font-bold text-red-600">৳{stats.due.toLocaleString()}</h3>
         </div>
         <div className="executive-card p-3 sm:p-5 border-l-4 border-emerald-500 bg-white">
-          <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">আদায় হয়েছে</p>
-          <h3 className="text-lg sm:text-2xl font-bold text-slate-800">{stats.paidCount} জন</h3>
+          <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">পেইড</p>
+          <h3 className="text-lg sm:text-2xl font-bold text-emerald-600">{stats.paidCount} জন</h3>
+        </div>
+        <div className="executive-card p-3 sm:p-5 border-l-4 border-amber-500 bg-white">
+          <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">আংশিক</p>
+          <h3 className="text-lg sm:text-2xl font-bold text-amber-600">{stats.partialCount} জন</h3>
         </div>
         <div className="executive-card p-3 sm:p-5 border-l-4 border-slate-400 bg-white">
-          <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">বকেয়া গ্রাহক</p>
+          <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">বকেয়া</p>
           <h3 className="text-lg sm:text-2xl font-bold text-slate-800">{stats.dueCount} জন</h3>
         </div>
       </div>
@@ -202,13 +210,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto sm:overflow-visible pb-1 sm:pb-0">
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 flex-shrink-0">
-            {['all', 'paid', 'due'].map((s) => (
+            {[
+              {id: 'all', label: 'সব'},
+              {id: 'paid', label: 'পেইড'},
+              {id: 'partial', label: 'আংশিক'},
+              {id: 'due', label: 'বকেয়া'}
+            ].map((s) => (
               <button 
-                key={s}
-                onClick={() => setStatusFilter(s as FilterStatus)}
-                className={`px-3 sm:px-4 py-1.5 rounded-md text-[10px] font-bold transition-all whitespace-nowrap ${statusFilter === s ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                key={s.id}
+                onClick={() => setStatusFilter(s.id as FilterStatus)}
+                className={`px-3 sm:px-4 py-1.5 rounded-md text-[10px] font-bold transition-all whitespace-nowrap ${statusFilter === s.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
               >
-                {s === 'all' ? 'সব' : s === 'paid' ? 'পেইড' : 'বকেয়া'}
+                {s.label}
               </button>
             ))}
           </div>
@@ -244,22 +257,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট গ্রাহক</p>
-              <p className="text-xl font-bold text-slate-900">{filteredCustomers.length} জন</p>
+          <div className="grid grid-cols-5 gap-3 mb-8">
+            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট গ্রাহক</p>
+              <p className="text-lg font-bold text-slate-900">{filteredCustomers.length} জন</p>
             </div>
-            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট আদায়</p>
-              <p className="text-xl font-bold text-emerald-600">৳{stats.paid.toLocaleString()}</p>
+            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট আদায়</p>
+              <p className="text-lg font-bold text-emerald-600">৳{stats.paid.toLocaleString()}</p>
             </div>
-            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট বকেয়া</p>
-              <p className="text-xl font-bold text-red-600">৳{stats.due.toLocaleString()}</p>
+            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">আদায়ের হার</p>
+              <p className="text-lg font-bold text-blue-600">{stats.paidCount} জন</p>
             </div>
-            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">বকেয়া গ্রাহক</p>
-              <p className="text-xl font-bold text-slate-900">{stats.dueCount} জন</p>
+            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">আংশিক</p>
+              <p className="text-lg font-bold text-amber-600">{stats.partialCount} জন</p>
+            </div>
+            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">বকেয়া</p>
+              <p className="text-lg font-bold text-red-600">৳{stats.due.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -268,7 +285,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-full">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
-                <th className="px-4 sm:px-6 py-3 sm:py-4">গ্রাহকের প্রোফাইল</th>
+                <th className="px-4 sm:px-6 py-3 sm:py-4">গ্রাহকের নাম</th>
                 <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">মাসিক বিল</th>
                 <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">অবস্থা</th>
                 <th className="px-4 sm:px-6 py-3 sm:py-4 text-right no-print">অ্যাকশন</th>
@@ -281,6 +298,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                 filteredCustomers.map((c) => {
                   const rec = c.records[currentMonthKey];
                   const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
+                  const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
+                  const isDue = !rec || (rec.paidAmount === 0);
                   
                   return (
                     <tr 
@@ -289,25 +308,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                       className="hover:bg-slate-50 transition-colors cursor-pointer group print:hover:bg-transparent"
                     >
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center font-bold text-xs sm:text-base print:border print:border-slate-300 ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                            {c.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">{c.name}</p>
-                            <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">{c.connectionName} • {c.mobile}</p>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">{c.name}</p>
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">{c.connectionName} • {c.mobile}</p>
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                         <span className="text-[11px] sm:text-sm font-bold text-slate-700">৳{c.monthlyBill}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
-                        <span className={`status-badge border text-[9px] sm:text-[10px] whitespace-nowrap ${isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                           {isPaid ? 'পরিশোধিত' : 'বকেয়া'}
+                        <span className={`status-badge border text-[9px] sm:text-[10px] whitespace-nowrap ${
+                          isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                          isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                          'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                           {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক পরিশোধ' : 'বকেয়া'}
                         </span>
-                        {isPaid && rec?.paymentMethod && (
-                           <p className="hidden print:block text-[7px] text-slate-400 mt-0.5 uppercase tracking-tighter">{rec.paymentMethod === 'Cash' ? 'নগদ' : rec.paymentMethod === 'bKash' ? 'বিকাশ' : 'ফ্রি'}</p>
+                        {(isPaid || isPartial) && rec?.paymentMethod && (
+                           <p className="hidden print:block text-[7px] text-slate-400 mt-0.5 uppercase tracking-tighter">
+                             {rec.paymentMethod === 'Cash' ? 'নগদ' : rec.paymentMethod === 'bKash' ? 'বিকাশ' : 'ফ্রি'}
+                             {isPartial && ` (৳${rec.paidAmount})`}
+                           </p>
+                        )}
+                        {isPartial && !rec?.paymentMethod && (
+                           <p className="hidden print:block text-[7px] text-amber-600 mt-0.5">জমা: ৳{rec.paidAmount}</p>
                         )}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 no-print text-right">
