@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Customer, MonthlyRecord } from './types';
-import { storageService } from './services/storageService';
-import { Dashboard } from './components/Dashboard';
-import { CustomerLedger } from './components/CustomerLedger';
-import { CustomerModal } from './components/CustomerModal';
+import { Customer, MonthlyRecord } from './types.ts';
+import { storageService } from './services/storageService.ts';
+import { Dashboard } from './components/Dashboard.tsx';
+import { CustomerLedger } from './components/CustomerLedger.tsx';
+import { CustomerModal } from './components/CustomerModal.tsx';
 
 const App: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);

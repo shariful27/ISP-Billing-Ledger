@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Customer, MONTHS_BN } from '../types';
-import { BkashModal } from './BkashModal';
+import { Customer, MONTHS_BN } from '../types.ts';
+import { BkashModal } from './BkashModal.tsx';
 
 interface DashboardProps {
   customers: Customer[];
