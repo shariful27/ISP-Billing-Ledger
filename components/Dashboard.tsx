@@ -225,20 +225,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
       {/* Table Section */}
       <div className="executive-card overflow-hidden">
-        <div className="hidden print:block text-center py-6 border-b">
-          <h1 className="text-2xl font-bold uppercase tracking-widest text-slate-800">গ্রাহক বিল রিপোর্ট</h1>
-          <p className="text-sm text-slate-500 mt-1">{MONTHS_BN[selectedMonth]} {selectedYear} • তারিখ: {new Date().toLocaleDateString('bn-BD')}</p>
-          <div className="flex justify-center gap-8 mt-4">
-             <div className="text-xs"><b>মোট গ্রাহক:</b> {filteredCustomers.length} জন</div>
-             <div className="text-xs"><b>মোট আদায়:</b> ৳{stats.paid}</div>
-             <div className="text-xs"><b>মোট বকেয়া:</b> ৳{stats.due}</div>
+        {/* ENHANCED PRINT REPORT HEADER */}
+        <div className="hidden print:block p-8 bg-white">
+          <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-slate-900 p-2 rounded-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">ISP লেজার প্রো</h1>
+              </div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">স্মার্ট গ্রাহক ও বিলিং ব্যবস্থাপনা</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-bold text-slate-800 mb-1">গ্রাহক বিল রিপোর্ট</h2>
+              <p className="text-xs font-bold text-slate-500">{MONTHS_BN[selectedMonth]} {selectedYear}</p>
+              <p className="text-[10px] text-slate-400 mt-2">রিপোর্ট জেনারেট: {new Date().toLocaleDateString('bn-BD')} | {new Date().toLocaleTimeString('bn-BD')}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট গ্রাহক</p>
+              <p className="text-xl font-bold text-slate-900">{filteredCustomers.length} জন</p>
+            </div>
+            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট আদায়</p>
+              <p className="text-xl font-bold text-emerald-600">৳{stats.paid.toLocaleString()}</p>
+            </div>
+            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">মোট বকেয়া</p>
+              <p className="text-xl font-bold text-red-600">৳{stats.due.toLocaleString()}</p>
+            </div>
+            <div className="border border-slate-200 p-4 rounded-xl text-center bg-slate-50/50">
+              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">বকেয়া গ্রাহক</p>
+              <p className="text-xl font-bold text-slate-900">{stats.dueCount} জন</p>
+            </div>
           </div>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
           <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-full">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-100 border-b border-slate-200 text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
                 <th className="px-4 sm:px-6 py-3 sm:py-4">গ্রাহকের প্রোফাইল</th>
                 <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">মাসিক বিল</th>
                 <th className="px-3 sm:px-6 py-3 sm:py-4 text-center">অবস্থা</th>
@@ -257,16 +286,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                     <tr 
                       key={c.id} 
                       onClick={() => onSelectCustomer(c.id)} 
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group print:hover:bg-transparent"
                     >
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center font-bold text-xs sm:text-base ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center font-bold text-xs sm:text-base print:border print:border-slate-300 ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
                             {c.name.charAt(0)}
                           </div>
                           <div className="min-w-0">
                             <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">{c.name}</p>
-                            <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">{c.mobile}</p>
+                            <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">{c.connectionName} • {c.mobile}</p>
                           </div>
                         </div>
                       </td>
@@ -275,8 +304,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                         <span className={`status-badge border text-[9px] sm:text-[10px] whitespace-nowrap ${isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                           {isPaid ? 'পেইড' : 'বকেয়া'}
+                           {isPaid ? 'পরিশোধিত' : 'বকেয়া'}
                         </span>
+                        {isPaid && rec?.paymentMethod && (
+                           <p className="hidden print:block text-[7px] text-slate-400 mt-0.5 uppercase tracking-tighter">{rec.paymentMethod === 'Cash' ? 'নগদ' : rec.paymentMethod === 'bKash' ? 'বিকাশ' : 'ফ্রি'}</p>
+                        )}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 no-print text-right">
                         <div className="flex items-center justify-end gap-1.5 sm:gap-2">
@@ -303,6 +335,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* PRINT FOOTER */}
+        <div className="hidden print:flex justify-between items-end p-12 mt-12 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-100">
+           <div className="text-center">
+              <div className="w-32 h-px bg-slate-300 mb-2"></div>
+              <span>কর্তৃপক্ষের স্বাক্ষর</span>
+           </div>
+           <div className="text-[8px] italic opacity-50">ISP লেজার প্রো - জেনারেটেড রিপোর্ট</div>
+           <div className="text-center">
+              <div className="w-32 h-px bg-slate-300 mb-2"></div>
+              <span>সিল ও স্বাক্ষর</span>
+           </div>
         </div>
       </div>
 
