@@ -102,9 +102,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-4">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-4 print-container">
       
-      {/* 1. Summary Cards - Grid Adjusted for Mobile */}
+      {/* PRINT-ONLY HEADER */}
+      <div className="print-only mb-8 border-b-2 border-slate-900 pb-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter">ISP LEDGER PRO</h1>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Smart Billing & Network Management System</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-black text-slate-800">মাসিক বিলিং রিপোর্ট</h2>
+            <p className="text-xs font-bold text-blue-600">{MONTHS_BN[selectedMonth]} {selectedYear}</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-4 mt-8">
+          <div className="border border-slate-200 p-3 rounded-lg bg-slate-50">
+             <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট আদায়</p>
+             <p className="text-lg font-black text-slate-800">৳{stats.paid.toLocaleString()}</p>
+          </div>
+          <div className="border border-slate-200 p-3 rounded-lg bg-slate-50">
+             <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট বকেয়া</p>
+             <p className="text-lg font-black text-red-600">৳{stats.due.toLocaleString()}</p>
+          </div>
+          <div className="border border-slate-200 p-3 rounded-lg bg-slate-50">
+             <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">পরিশোধিত</p>
+             <p className="text-lg font-black text-emerald-600">{stats.paidCount} জন</p>
+          </div>
+          <div className="border border-slate-200 p-3 rounded-lg bg-slate-50">
+             <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">বকেয়া গ্রাহক</p>
+             <p className="text-lg font-black text-amber-600">{stats.dueCount} জন</p>
+          </div>
+        </div>
+        
+        <div className="mt-4 flex justify-between text-[9px] font-medium text-slate-400 italic">
+          <span>রিপোর্ট তৈরির সময়: {new Date().toLocaleString('bn-BD')}</span>
+          <span>মোট গ্রাহক সংখ্যা: {filteredCustomers.length} জন</span>
+        </div>
+      </div>
+
+      {/* 1. Summary Cards - Screen only */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 no-print">
         <div className="grid grid-cols-1 gap-3 sm:gap-4">
           <div className="bg-white border border-slate-200 border-l-[6px] border-l-blue-600 rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-sm">
@@ -132,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
       </div>
 
-      {/* 2. Control Bar - Optimized for Vertical Stacking on Mobile */}
+      {/* 2. Control Bar - Screen only */}
       <div className="no-print bg-white p-3 rounded-2xl border border-slate-200 flex flex-col gap-3 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 flex-1 justify-between sm:justify-start">
@@ -181,23 +219,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
       </div>
 
-      {/* 3. Main Report Table - Reduced padding and mobile font sizes */}
-      <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200 overflow-hidden shadow-xl">
+      {/* 3. Main Report Table */}
+      <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200 overflow-hidden shadow-xl sm:shadow-sm">
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[800px] sm:min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">
                 <th className="px-4 sm:px-6 py-4 sm:py-5">গ্রাহকের নাম ও আইডি</th>
-                <th className="px-3 py-4 sm:py-5 text-center">নির্ধারিত</th>
+                <th className="px-3 py-4 sm:py-5 text-center">নির্ধারিত বিল</th>
                 <th className="px-3 py-4 sm:py-5 text-center">পরিশোধিত</th>
                 <th className="px-3 py-4 sm:py-5 text-center">বকেয়া</th>
+                <th className="px-3 py-4 sm:py-5 text-center">পেমেন্ট মেথড</th>
                 <th className="px-3 py-4 sm:py-5 text-center">স্ট্যাটাস</th>
                 <th className="px-4 sm:px-6 py-4 sm:py-5 text-right no-print">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredCustomers.length === 0 ? (
-                <tr><td colSpan={6} className="py-16 sm:py-24 text-center text-slate-400 font-bold italic">তালিকা খালি</td></tr>
+                <tr><td colSpan={7} className="py-16 sm:py-24 text-center text-slate-400 font-bold italic">তালিকা খালি</td></tr>
               ) : (
                 filteredCustomers.map((c) => {
                   const rec = c.records[currentMonthKey];
@@ -226,35 +265,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                         </span>
                       </td>
                       <td className="px-3 py-4 sm:py-5 text-center">
-                        <div className="flex flex-col items-center gap-1.5">
-                          <span className={`text-[8px] sm:text-[9px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-md border shadow-sm ${
-                            isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                            isPartial ? 'bg-amber-50 text-amber-700 border-amber-100' : 
-                            'bg-red-50 text-red-600 border-red-100'
-                          }`}>
-                             {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক জমা' : 'বকেয়া'}
-                          </span>
-                          
-                          {rec?.paymentMethod && (
-                            <div className="flex items-center gap-1">
-                              {rec.paymentMethod === 'Cash' && (
-                                <span className="flex items-center gap-1 text-[7px] sm:text-[8px] font-black text-blue-700 uppercase bg-blue-100 px-1.5 sm:px-2.5 py-0.5 rounded border border-blue-200 shadow-sm">
-                                  ক্যাশ
-                                </span>
-                              )}
-                              {rec.paymentMethod === 'bKash' && (
-                                <span className="flex items-center gap-1 text-[7px] sm:text-[8px] font-black text-white uppercase bg-[#e2136e] px-1.5 sm:px-2.5 py-0.5 rounded shadow-md border border-[#c61060]">
-                                  বিকাশ
-                                </span>
-                              )}
-                              {rec.paymentMethod === 'Free' && (
-                                <span className="flex items-center gap-1 text-[7px] sm:text-[8px] font-black text-indigo-700 uppercase bg-indigo-100 px-1.5 sm:px-2.5 py-0.5 rounded border border-indigo-200">
-                                  ফ্রি
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                         {rec?.paymentMethod ? (
+                            <span className={`text-[8px] sm:text-[10px] font-black uppercase tracking-tighter ${rec.paymentMethod === 'bKash' ? 'text-pink-600' : 'text-blue-600'}`}>
+                               {rec.paymentMethod === 'Cash' ? 'নগদ / ক্যাশ' : rec.paymentMethod === 'bKash' ? 'বিকাশ পেমেন্ট' : 'অন্যান্য'}
+                            </span>
+                         ) : <span className="text-slate-200">-</span>}
+                      </td>
+                      <td className="px-3 py-4 sm:py-5 text-center">
+                        <span className={`status-badge-print text-[8px] sm:text-[9px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-md border ${
+                          isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                          isPartial ? 'bg-amber-50 text-amber-700 border-amber-100' : 
+                          'bg-red-50 text-red-600 border-red-100'
+                        }`}>
+                           {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক জমা' : 'বকেয়া'}
+                        </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 sm:py-5 text-right no-print">
                         <div className="flex items-center justify-end gap-2 sm:gap-3">
@@ -275,7 +299,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
       </div>
 
-      {/* Payment Selection Modal - Full-width padding on mobile */}
+      {/* PRINT-ONLY FOOTER SIGNATURES */}
+      <div className="print-only mt-20 flex justify-between px-10">
+         <div className="text-center">
+            <div className="w-32 h-px bg-slate-900 mb-2"></div>
+            <p className="text-[10px] font-black uppercase">হিসাবরক্ষকের স্বাক্ষর</p>
+         </div>
+         <div className="text-center">
+            <div className="w-32 h-px bg-slate-900 mb-2"></div>
+            <p className="text-[10px] font-black uppercase">পরিচালকের স্বাক্ষর</p>
+         </div>
+      </div>
+
+      {/* Modals remain the same... */}
       {paymentSelection && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[210] flex items-center justify-center p-3 sm:p-4 no-print animate-in fade-in duration-300">
           <div className="bg-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-100 overflow-hidden relative">

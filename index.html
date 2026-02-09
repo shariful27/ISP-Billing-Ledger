@@ -25,42 +25,31 @@
             overflow-x: hidden;
         }
 
-        .executive-card {
-            background: var(--card-bg);
-            border: 1px solid #e2e8f0;
-            border-radius: 0.75rem;
-            transition: all 0.2s ease;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .status-badge {
-            padding: 0.2rem 0.6rem;
-            border-radius: 0.4rem;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .print-only { display: none; }
 
         @media print {
+            @page { size: A4; margin: 1.5cm; }
             body { background: white !important; color: black !important; padding: 0 !important; }
             .no-print { display: none !important; }
             .print-only { display: block !important; }
-            .executive-card { 
-                border: 1px solid #000 !important; 
-                box-shadow: none !important; 
-                border-radius: 0 !important;
-                margin-bottom: 0 !important;
+            
+            .print-container { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            
+            table { width: 100% !important; border-collapse: collapse !important; margin-top: 10px; }
+            th { background-color: #f8fafc !important; color: #000 !important; border: 1px solid #cbd5e1 !important; padding: 8px 4px !important; font-size: 10px !important; }
+            td { border: 1px solid #e2e8f0 !important; padding: 8px 4px !important; font-size: 11px !important; color: #334155 !important; }
+            
+            .status-badge-print { 
+                border: 1px solid #ccc !important; 
+                padding: 2px 6px !important; 
+                border-radius: 4px !important; 
+                font-size: 9px !important;
+                font-weight: bold !important;
+                display: inline-block !important;
             }
-            table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #000 !important; }
-            th, td { border: 1px solid #000 !important; padding: 6px !important; font-size: 11px !important; color: black !important; }
-            .status-badge { background: transparent !important; color: black !important; border: 1px solid #000 !important; }
         }
 
         ::-webkit-scrollbar { width: 6px; }
