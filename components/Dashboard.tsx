@@ -26,13 +26,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
   const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
-  const eligibleCustomers = customers.filter(c => {
-    const connDate = new Date(c.connectionDate);
-    return (connDate.getFullYear() < selectedYear) || 
-           (connDate.getFullYear() === selectedYear && connDate.getMonth() <= selectedMonth);
-  });
+  // Filter and Sort: Newest customers first (based on connectionDate)
+  const sortedAndFiltered = customers
+    .filter(c => {
+      const connDate = new Date(c.connectionDate);
+      return (connDate.getFullYear() < selectedYear) || 
+             (connDate.getFullYear() === selectedYear && connDate.getMonth() <= selectedMonth);
+    })
+    .sort((a, b) => new Date(b.connectionDate).getTime() - new Date(a.connectionDate).getTime());
 
-  const filteredCustomers = eligibleCustomers.filter(c => {
+  const filteredCustomers = sortedAndFiltered.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          (c.connectionName && c.connectionName.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (c.mobile && c.mobile.includes(searchTerm));
@@ -148,8 +151,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 overflow-x-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
             {[
               {id: 'all', label: 'সব'},
               {id: 'paid', label: 'পেইড'},
@@ -178,7 +181,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
       {/* Table Section */}
       <div className="executive-card overflow-hidden bg-white">
-        {/* ENHANCED PRINT REPORT HEADER */}
+        {/* PRINT HEADER (HIDDEN ON SCREEN) */}
         <div className="hidden print:block p-8">
           <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
             <div>
@@ -196,7 +199,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <p className="text-[10px] text-slate-400 mt-2">রিপোর্ট জেনারেট: {new Date().toLocaleDateString('bn-BD')} | {new Date().toLocaleTimeString('bn-BD')}</p>
             </div>
           </div>
-
           <div className="grid grid-cols-5 gap-3 mb-8">
             <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
               <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট গ্রাহক</p>
@@ -222,10 +224,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-full">
+          <table className="w-full text-left border-collapse min-w-[750px] sm:min-w-full">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
-                <th className="px-4 sm:px-6 py-4">গ্রাহকের তথ্য</th>
+                <th className="px-4 sm:px-6 py-4">গ্রাহকের নাম ও আইডি</th>
                 <th className="px-3 py-4 text-center">নির্ধারিত বিল</th>
                 <th className="px-3 py-4 text-center">পরিশোধিত</th>
                 <th className="px-3 py-4 text-center">বকেয়া</th>
@@ -241,7 +243,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                   const rec = c.records[currentMonthKey];
                   const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
                   const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
-                  const isDue = !rec || (rec.paidAmount === 0);
                   const paidVal = rec ? rec.paidAmount : 0;
                   const dueVal = rec ? rec.due : c.monthlyBill;
                   
@@ -253,26 +254,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                     >
                       <td className="px-4 sm:px-6 py-4">
                         <div className="min-w-0">
-                          <p className="text-[11px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 truncate">{c.name}</p>
-                          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">{c.connectionName} • {c.mobile}</p>
+                          <p className="text-[12px] sm:text-sm font-bold text-slate-800 group-hover:text-blue-600 truncate">{c.name}</p>
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate uppercase tracking-tighter">ID: {c.connectionName} • {c.mobile}</p>
                         </div>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className="text-[11px] sm:text-sm font-bold text-slate-600">৳{c.monthlyBill}</span>
+                        <span className="text-[12px] sm:text-sm font-bold text-slate-600">৳{c.monthlyBill}</span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className={`text-[11px] sm:text-sm font-bold ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                        <span className={`text-[12px] sm:text-sm font-black ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
                           ৳{paidVal}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className={`text-[11px] sm:text-sm font-bold ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                        <span className={`text-[12px] sm:text-sm font-black ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
                           ৳{dueVal}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className={`status-badge border text-[8px] sm:text-[9px] whitespace-nowrap leading-none py-1 px-2 ${
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span className={`status-badge border text-[8px] sm:text-[9px] font-black whitespace-nowrap px-2.5 py-1 ${
                             isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
                             isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
                             'bg-red-50 text-red-600 border-red-200'
@@ -282,21 +283,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                           
                           {/* STYLED PAYMENT METHOD LABELS */}
                           {rec?.paymentMethod && (
-                            <div className="flex items-center gap-1 mt-0.5">
+                            <div className="flex items-center gap-1">
                               {rec.paymentMethod === 'Cash' && (
-                                <span className="flex items-center gap-0.5 text-[8px] font-black text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                                  <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-blue-700 uppercase bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">
+                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
                                   ক্যাশ
                                 </span>
                               )}
                               {rec.paymentMethod === 'bKash' && (
-                                <span className="flex items-center gap-0.5 text-[8px] font-black text-[#e2136e] uppercase bg-pink-50 px-1.5 py-0.5 rounded border border-pink-100">
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-[#e2136e] uppercase bg-pink-100/80 px-2 py-0.5 rounded-full border border-pink-200 shadow-sm">
                                   <span className="italic tracking-tighter">b</span>বিকাশ
                                 </span>
                               )}
                               {rec.paymentMethod === 'Free' && (
-                                <span className="flex items-center gap-0.5 text-[8px] font-black text-indigo-600 uppercase bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                  <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" /><path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" /></svg>
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-indigo-700 uppercase bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200 shadow-sm">
+                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" /><path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" /></svg>
                                   ফ্রি
                                 </span>
                               )}
@@ -309,7 +310,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                           {!isPaid && (
                             <button 
                               onClick={(e) => handlePaymentInitiation(e, c)}
-                              className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all"
+                              className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-md transition-all active:scale-95"
                             >
                               বিল জমা
                             </button>
@@ -353,16 +354,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <p className="text-slate-400 text-xs mt-1 font-medium italic">{paymentSelection.name} • ৳{paymentSelection.amount}</p>
             </div>
             <div className="grid grid-cols-1 gap-3">
-              <button onClick={handleCashPayment} className="flex items-center justify-center gap-3 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all active:scale-95">ক্যাশ পেমেন্ট</button>
-              <button onClick={handleBkashSelection} className="flex items-center justify-center gap-3 py-4 bg-[#e2136e] hover:bg-[#c61060] text-white font-bold rounded-xl transition-all active:scale-95">বিকাশ পেমেন্ট</button>
-              <button onClick={handleFreePayment} className="flex items-center justify-center gap-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all active:scale-95">ফ্রি বিল</button>
-              <button onClick={() => setPaymentSelection(null)} className="w-full py-3 mt-2 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs">ফিরে যান</button>
+              <button onClick={handleCashPayment} className="flex items-center justify-center gap-3 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow-md">ক্যাশ পেমেন্ট</button>
+              <button onClick={handleBkashSelection} className="flex items-center justify-center gap-3 py-4 bg-[#e2136e] hover:bg-[#c61060] text-white font-bold rounded-xl transition-all active:scale-95 shadow-md">বিকাশ পেমেন্ট</button>
+              <button onClick={handleFreePayment} className="flex items-center justify-center gap-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow-md">ফ্রি বিল</button>
+              <button onClick={() => setPaymentSelection(null)} className="w-full py-3 mt-2 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs active:scale-95">ফিরে যান</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* bKash Modal & Delete Modal remains the same */}
+      {/* Bkash Modal & Delete Modal logic stays in Dashboard as per previous file structure */}
       <BkashModal 
         isOpen={!!bkashData} 
         onClose={() => setBkashData(null)} 
@@ -385,8 +386,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
               <h3 className="text-base font-bold text-slate-800">মুছে ফেলবেন?</h3>
               <p className="text-slate-500 text-[11px] mt-2 mb-6">"{customerToDelete.name}" এর সকল ডাটা মুছে যাবে।</p>
               <div className="flex gap-2 w-full">
-                <button onClick={() => setCustomerToDelete(null)} className="flex-1 py-2 bg-slate-100 rounded-lg font-bold text-xs">না</button>
-                <button onClick={() => { onDeleteCustomer(customerToDelete.id); setCustomerToDelete(null); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold text-xs">হ্যাঁ</button>
+                <button onClick={() => setCustomerToDelete(null)} className="flex-1 py-2 bg-slate-100 rounded-lg font-bold text-xs transition-all active:scale-95">না</button>
+                <button onClick={() => { onDeleteCustomer(customerToDelete.id); setCustomerToDelete(null); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold text-xs transition-all active:scale-95 shadow-md">হ্যাঁ</button>
               </div>
             </div>
           </div>
