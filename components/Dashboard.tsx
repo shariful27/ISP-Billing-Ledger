@@ -26,14 +26,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
   const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
-  // Filter and Sort: Newest customers first (based on connectionDate)
-  const sortedAndFiltered = customers
+  // Filter and Sort: Newly added customers ALWAYS at the top (using createdAt)
+  const sortedAndFiltered = [...customers]
     .filter(c => {
       const connDate = new Date(c.connectionDate);
       return (connDate.getFullYear() < selectedYear) || 
              (connDate.getFullYear() === selectedYear && connDate.getMonth() <= selectedMonth);
     })
-    .sort((a, b) => new Date(b.connectionDate).getTime() - new Date(a.connectionDate).getTime());
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const filteredCustomers = sortedAndFiltered.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -128,7 +128,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
       </div>
 
-      {/* Control & Filter Bar */}
+      {/* Control Bar */}
       <div className="executive-card p-3 sm:p-4 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 no-print shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 w-full sm:w-auto">
@@ -181,56 +181,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
 
       {/* Table Section */}
       <div className="executive-card overflow-hidden bg-white">
-        {/* PRINT HEADER (HIDDEN ON SCREEN) */}
-        <div className="hidden print:block p-8">
-          <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-slate-900 p-2 rounded-lg">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">ISP লেজার প্রো</h1>
-              </div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">স্মার্ট গ্রাহক ও বিলিং ব্যবস্থাপনা</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-xl font-bold text-slate-800 mb-1">গ্রাহক বিল রিপোর্ট</h2>
-              <p className="text-xs font-bold text-slate-500">{MONTHS_BN[selectedMonth]} {selectedYear}</p>
-              <p className="text-[10px] text-slate-400 mt-2">রিপোর্ট জেনারেট: {new Date().toLocaleDateString('bn-BD')} | {new Date().toLocaleTimeString('bn-BD')}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-5 gap-3 mb-8">
-            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট গ্রাহক</p>
-              <p className="text-lg font-bold text-slate-900">{filteredCustomers.length} জন</p>
-            </div>
-            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট আদায়</p>
-              <p className="text-lg font-bold text-emerald-600">৳{stats.paid.toLocaleString()}</p>
-            </div>
-            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">পেইড</p>
-              <p className="text-lg font-bold text-blue-600">{stats.paidCount} জন</p>
-            </div>
-            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">আংশিক</p>
-              <p className="text-lg font-bold text-amber-600">{stats.partialCount} জন</p>
-            </div>
-            <div className="border border-slate-200 p-3 rounded-xl text-center bg-slate-50/50">
-              <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">মোট বকেয়া</p>
-              <p className="text-lg font-bold text-red-600">৳{stats.due.toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-
         <div className="overflow-x-auto scrollbar-hide">
           <table className="w-full text-left border-collapse min-w-[750px] sm:min-w-full">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider print:bg-slate-200 print:text-slate-900">
-                <th className="px-4 sm:px-6 py-4">গ্রাহকের নাম ও আইডি</th>
+                <th className="px-4 sm:px-6 py-4">গ্রাহকের নাম ও তথ্য</th>
                 <th className="px-3 py-4 text-center">নির্ধারিত বিল</th>
-                <th className="px-3 py-4 text-center">পরিশোধিত</th>
-                <th className="px-3 py-4 text-center">বকেয়া</th>
+                <th className="px-3 py-4 text-center">পরিশোধিত টাকা</th>
+                <th className="px-3 py-4 text-center">বকেয়া টাকা</th>
                 <th className="px-3 py-4 text-center">অবস্থা ও মাধ্যম</th>
                 <th className="px-4 py-4 text-right no-print">অ্যাকশন</th>
               </tr>
@@ -262,21 +220,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                         <span className="text-[12px] sm:text-sm font-bold text-slate-600">৳{c.monthlyBill}</span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className={`text-[12px] sm:text-sm font-black ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                        <span className={`text-[13px] sm:text-[15px] font-black ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
                           ৳{paidVal}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className={`text-[12px] sm:text-sm font-black ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                        <span className={`text-[13px] sm:text-[15px] font-black ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
                           ৳{dueVal}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="flex flex-col items-center gap-1.5">
                           <span className={`status-badge border text-[8px] sm:text-[9px] font-black whitespace-nowrap px-2.5 py-1 ${
-                            isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                            isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                            'bg-red-50 text-red-600 border-red-200'
+                            isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm shadow-emerald-100' : 
+                            isPartial ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm shadow-amber-100' : 
+                            'bg-red-50 text-red-600 border-red-200 shadow-sm shadow-red-100'
                           }`}>
                              {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক জমা' : 'বকেয়া'}
                           </span>
@@ -285,18 +243,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
                           {rec?.paymentMethod && (
                             <div className="flex items-center gap-1">
                               {rec.paymentMethod === 'Cash' && (
-                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-blue-700 uppercase bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-blue-700 uppercase bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200 shadow-inner">
                                   <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
                                   ক্যাশ
                                 </span>
                               )}
                               {rec.paymentMethod === 'bKash' && (
-                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-[#e2136e] uppercase bg-pink-100/80 px-2 py-0.5 rounded-full border border-pink-200 shadow-sm">
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-white uppercase bg-[#e2136e] px-2 py-0.5 rounded-full shadow-sm">
                                   <span className="italic tracking-tighter">b</span>বিকাশ
                                 </span>
                               )}
                               {rec.paymentMethod === 'Free' && (
-                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-indigo-700 uppercase bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200 shadow-sm">
+                                <span className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-indigo-700 uppercase bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
                                   <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" /><path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" /></svg>
                                   ফ্রি
                                 </span>
@@ -330,19 +288,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
             </tbody>
           </table>
         </div>
-
-        {/* PRINT FOOTER */}
-        <div className="hidden print:flex justify-between items-end p-12 mt-12 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-100">
-           <div className="text-center">
-              <div className="w-32 h-px bg-slate-300 mb-2"></div>
-              <span>কর্তৃপক্ষের স্বাক্ষর</span>
-           </div>
-           <div className="text-[8px] italic opacity-50">ISP লেজার প্রো - প্রফেশনাল রিপোর্টিং সিস্টেম</div>
-           <div className="text-center">
-              <div className="w-32 h-px bg-slate-300 mb-2"></div>
-              <span>সিল ও তারিখ</span>
-           </div>
-        </div>
       </div>
 
       {/* Payment Selection Modal */}
@@ -363,7 +308,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
         </div>
       )}
 
-      {/* Bkash Modal & Delete Modal logic stays in Dashboard as per previous file structure */}
+      {/* Modals logic remains */}
       <BkashModal 
         isOpen={!!bkashData} 
         onClose={() => setBkashData(null)} 

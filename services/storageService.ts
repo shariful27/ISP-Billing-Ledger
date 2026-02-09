@@ -28,6 +28,7 @@ export const storageService = {
       mobile: customer.mobile || '',
       monthlyBill: customer.monthlyBill || 0,
       connectionDate: customer.connectionDate || new Date().toISOString().split('T')[0],
+      createdAt: Date.now(), // Newest entry logic
       records: {},
     };
     customers.push(newCustomer);

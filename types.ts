@@ -6,18 +6,19 @@ export interface MonthlyRecord {
   due: number;
   paymentDate: string;
   remarks: string;
-  paymentMethod?: 'Cash' | 'bKash' | 'Other';
+  paymentMethod?: 'Cash' | 'bKash' | 'Free' | 'Other';
   trxId?: string;
 }
 
 export interface Customer {
   id: string;
   name: string;
-  connectionName: string; // Renamed from connectionId
+  connectionName: string;
   address: string;
   mobile: string;
   monthlyBill: number;
   connectionDate: string; 
+  createdAt: number; // For sorting by newest entries
   records: Record<string, MonthlyRecord>;
 }
 
