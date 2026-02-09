@@ -30,22 +30,25 @@ const App: React.FC = () => {
     setCustomers(storageService.getCustomers());
   };
 
-  const handleQuickPay = (customerId: string, monthKey: string, method?: string, trxId?: string) => {
+  const handleQuickPay = (customerId: string, monthKey: string, amount: number, method?: string, trxId?: string) => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer) return;
 
-    let remarks = 'বিল পরিশোধ করা হয়েছে';
-    let paidAmount = customer.monthlyBill;
+    let remarks = amount < customer.monthlyBill ? 'আংশিক বিল পরিশোধ' : 'বিল পরিশোধ করা হয়েছে';
+    let paidAmount = amount;
+    let due = Math.max(0, customer.monthlyBill - amount);
 
-    if (method === 'Cash') remarks = 'নগদ (Cash) পেমেন্ট';
+    if (method === 'Cash') remarks = amount < customer.monthlyBill ? `নগদ আংশিক জমা (৳${amount})` : 'নগদ (Cash) পেমেন্ট';
     if (method === 'bKash') remarks = `বিকাশ পেমেন্ট (TrxID: ${trxId || 'N/A'})`;
     if (method === 'Free') {
       remarks = 'ফ্রি বিল পরিশোধ করা হয়েছে';
+      paidAmount = customer.monthlyBill;
+      due = 0;
     }
 
     storageService.updateMonthlyRecord(customerId, monthKey, {
       paidAmount: paidAmount,
-      due: 0,
+      due: due,
       paymentDate: new Date().toISOString().split('T')[0],
       remarks: remarks,
       paymentMethod: method as any || 'Other',
