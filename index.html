@@ -4,39 +4,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISP Billing Ledger - Modern Edition</title>
+    <title>ISP লেজার প্রো - প্রফেশনাল বিলিং সিস্টেম</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #818cf8;
+            --success: #34d399;
+            --danger: #f87171;
+            --bg-dark: #020617;
+            --slate-900: #0f172a;
+        }
+
         body {
             font-family: 'Hind Siliguri', sans-serif;
-            background-color: #f1f5f9;
-            color: #1e293b;
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(244, 49%, 12%, 1) 0, transparent 40%), 
+                radial-gradient(at 100% 0%, hsla(262, 52%, 10%, 1) 0, transparent 40%),
+                radial-gradient(at 50% 100%, hsla(220, 45%, 8%, 1) 0, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #f8fafc;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        .glass {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+
+        .aurora-blur {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
         }
-        
+        .aurora-obj {
+            position: absolute;
+            width: 600px; height: 600px;
+            filter: blur(120px);
+            opacity: 0.1;
+            border-radius: 50%;
+            animation: move 25s infinite alternate ease-in-out;
+        }
+        @keyframes move {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(150px, 100px) scale(1.1); }
+            100% { transform: translate(-100px, 150px) scale(0.9); }
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(129, 140, 248, 0.3);
+            background: rgba(30, 41, 59, 0.5);
+            box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #a5b4fc 0%, #d8b4fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .premium-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            box-shadow: 0 4px 15px -4px rgba(79, 70, 229, 0.4);
+            transition: all 0.3s ease;
+        }
+        .premium-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -5px rgba(79, 70, 229, 0.6);
+        }
+
         @media print {
-            @page { margin: 1cm; size: portrait; }
-            body { background-color: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
+            body { background: white !important; color: black !important; background-image: none !important; }
             .no-print { display: none !important; }
-            .print-only { display: block !important; visibility: visible !important; }
-            #root { display: block !important; padding: 0 !important; }
-            main { padding: 0 !important; max-width: none !important; }
-            table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #000 !important; }
-            th, td { border: 1px solid #000 !important; padding: 6px !important; font-size: 11px !important; color: black !important; }
-            th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
+            .print-only { display: block !important; }
+            .glass-card { background: transparent !important; border: 1px solid #e2e8f0 !important; color: black !important; }
         }
-        
-        .print-only { display: none; }
-        
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(129, 140, 248, 0.3); }
     </style>
 <script type="importmap">
 {
@@ -44,15 +99,18 @@
     "react": "https://esm.sh/react@19.0.0",
     "react-dom": "https://esm.sh/react-dom@19.0.0",
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
 </head>
 <body>
+    <div class="aurora-blur">
+        <div class="aurora-obj" style="background: #4f46e5; top: -200px; left: -100px;"></div>
+        <div class="aurora-obj" style="background: #9333ea; bottom: -200px; right: -100px; animation-delay: -7s;"></div>
+    </div>
     <div id="root"></div>
-    <!-- Entry point for the application -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

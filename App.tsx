@@ -65,23 +65,25 @@ const App: React.FC = () => {
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 no-print">
+    <div className="min-h-screen flex flex-col">
+      <nav className="glass-card sticky top-0 z-40 border-b border-white/5 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedCustomerId(null)}>
-            <div className="bg-indigo-600 p-2 rounded-2xl shadow-lg shadow-indigo-200">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setSelectedCustomerId(null)}>
+            <div className="premium-btn p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20 transform group-hover:rotate-12 transition-transform duration-300">
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
             <div>
-              <span className="text-2xl font-black text-slate-800 tracking-tighter">ISP লেজার <span className="text-indigo-600">PRO</span></span>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">Monthly Billing System</p>
+              <span className="text-2xl font-black text-glow tracking-tighter bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">ISP লেজার প্রো</span>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] leading-none mt-1">ম্যানেজমেন্ট ক্লাউড ৩.০</p>
             </div>
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-tighter">সিস্টেম স্ট্যাটাস</p>
-            <div className="flex items-center gap-1.5 justify-end mt-0.5">
-               <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-               <span className="text-xs font-bold text-slate-700">অনলাইন</span>
+          <div className="hidden sm:flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">সার্ভার সংযোগ</p>
+              <div className="flex items-center gap-2 justify-end mt-0.5">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse"></div>
+                 <span className="text-[11px] font-bold text-slate-300">নিরাপদ সংযোগ</span>
+              </div>
             </div>
           </div>
         </div>
@@ -110,8 +112,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="no-print py-8 text-center border-t border-slate-200 bg-white text-slate-400 font-bold text-xs uppercase tracking-widest mt-auto">
-        © {new Date().getFullYear()} ডিজিটাল ISP লেজার সার্ভিস
+      <footer className="no-print py-10 text-center text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em] mt-auto">
+        ISP ম্যানেজমেন্ট সিস্টেম • © {new Date().getFullYear()} ডিজিটাল লেজার সার্ভিস
       </footer>
 
       <CustomerModal
