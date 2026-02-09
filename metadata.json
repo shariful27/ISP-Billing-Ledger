@@ -1,0 +1,5 @@
+{
+  "name": "ISP Billing Ledger",
+  "description": "A comprehensive internet customer monthly billing and account management system for small ISPs, featuring yearly tracking and due management.",
+  "requestFramePermissions": []
+}
