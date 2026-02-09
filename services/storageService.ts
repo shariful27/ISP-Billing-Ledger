@@ -5,8 +5,13 @@ const STORAGE_KEY = 'isp_billing_data_v2';
 
 export const storageService = {
   getCustomers: (): Customer[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.error("Failed to load customers", e);
+      return [];
+    }
   },
 
   saveCustomers: (customers: Customer[]): void => {
@@ -44,6 +49,8 @@ export const storageService = {
     const index = customers.findIndex(c => c.id === customerId);
     if (index !== -1) {
       const customer = customers[index];
+      if (!customer.records) customer.records = {};
+      
       const existing = customer.records[monthKey] || {
         monthKey,
         expectedBill: customer.monthlyBill,
@@ -52,6 +59,7 @@ export const storageService = {
         paymentDate: '',
         remarks: ''
       };
+      
       customer.records[monthKey] = { ...existing, ...record };
       storageService.saveCustomers(customers);
     }
