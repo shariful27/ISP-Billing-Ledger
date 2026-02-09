@@ -35,11 +35,16 @@ const App: React.FC = () => {
     if (!customer) return;
 
     let remarks = 'বিল পরিশোধ করা হয়েছে';
+    let paidAmount = customer.monthlyBill;
+
     if (method === 'Cash') remarks = 'নগদ (Cash) পেমেন্ট';
     if (method === 'bKash') remarks = `বিকাশ পেমেন্ট (TrxID: ${trxId || 'N/A'})`;
+    if (method === 'Free') {
+      remarks = 'ফ্রি বিল পরিশোধ করা হয়েছে';
+    }
 
     storageService.updateMonthlyRecord(customerId, monthKey, {
-      paidAmount: customer.monthlyBill,
+      paidAmount: paidAmount,
       due: 0,
       paymentDate: new Date().toISOString().split('T')[0],
       remarks: remarks,

@@ -3,7 +3,7 @@
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ISP লেজার প্রো - প্রফেশনাল ম্যানেজমেন্ট সিস্টেম</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -21,6 +21,7 @@
             background-color: var(--bg-body);
             color: #1e293b;
             min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .executive-card {
@@ -36,6 +37,14 @@
             font-size: 0.7rem;
             font-weight: 700;
             text-transform: uppercase;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
 
         @media print {
