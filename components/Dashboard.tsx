@@ -370,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
             
             <div className="grid grid-cols-1 gap-4">
               <button onClick={() => { onQuickPay(paymentSelection.id, currentMonthKey, paymentSelection.inputAmount, 'Cash'); setPaymentSelection(null); }} className="py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-[20px] transition-all shadow-xl shadow-emerald-100 active:scale-95">
-                নগদ পেমেন্ট
+                ক্যাশ পেমেন্ট
               </button>
               <button onClick={() => { setBkashData({ id: paymentSelection.id, name: paymentSelection.name, amount: paymentSelection.inputAmount, monthKey: currentMonthKey }); setPaymentSelection(null); }} className="py-4 bg-[#e2136e] hover:bg-[#c61060] text-white font-black rounded-[20px] transition-all shadow-xl shadow-pink-100 active:scale-95">
                 বিকাশ পেমেন্ট
