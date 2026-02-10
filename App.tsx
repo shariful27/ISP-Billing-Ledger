@@ -7,25 +7,32 @@ import { Dashboard } from './components/Dashboard.tsx';
 import { CustomerLedger } from './components/CustomerLedger.tsx';
 import { CustomerModal } from './components/CustomerModal.tsx';
 import { Auth } from './components/Auth.tsx';
+import { SyncModal } from './components/SyncModal.tsx';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [editCustomerData, setEditCustomerData] = useState<Customer | undefined>();
 
-  useEffect(() => {
+  const loadAllData = useCallback(() => {
     const user = authService.getCurrentUser();
     if (user) {
       setCurrentUser(user);
       setCustomers(storageService.getCustomers());
+    } else {
+      setCurrentUser(null);
     }
   }, []);
 
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
   const handleLoginSuccess = () => {
-    setCurrentUser(authService.getCurrentUser());
-    setCustomers(storageService.getCustomers());
+    loadAllData();
   };
 
   const handleLogout = () => {
@@ -56,7 +63,7 @@ const App: React.FC = () => {
     let paidAmount = amount;
     let due = Math.max(0, customer.monthlyBill - amount);
 
-    if (method === 'Cash') remarks = amount < customer.monthlyBill ? `নগদ আংশিক জমা (৳${amount})` : 'নগদ (Cash) পেমেন্ট';
+    if (method === 'Cash') remarks = amount < customer.monthlyBill ? `ক্যাশ আংশিক জমা (৳${amount})` : 'ক্যাশ পেমেন্ট';
     if (method === 'bKash') remarks = `বিকাশ পেমেন্ট (TrxID: ${trxId || 'N/A'})`;
     if (method === 'Free') {
       remarks = 'ফ্রি বিল পরিশোধ করা হয়েছে';
@@ -112,7 +119,7 @@ const App: React.FC = () => {
               <p className="text-[9px] text-blue-300 font-medium uppercase tracking-[0.1em] leading-none">Smart Billing & Accounts</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
              <div className="text-right hidden md:block">
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">ইউজার: {currentUser.username}</p>
                 <div className="flex items-center gap-1.5 justify-end">
@@ -120,9 +127,18 @@ const App: React.FC = () => {
                    <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-tighter">সচল আছে</span>
                 </div>
              </div>
+             
+             <button 
+                onClick={() => setIsSyncModalOpen(true)}
+                className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-xl transition-all"
+                title="ব্যাকআপ ও সিঙ্ক"
+             >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v8" /></svg>
+             </button>
+
              <button 
               onClick={handleLogout}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-white px-4 py-2 rounded-xl transition-all font-bold text-xs"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-white px-3 sm:px-4 py-2 rounded-xl transition-all font-bold text-[10px] sm:text-xs"
              >
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                লগআউট
@@ -163,6 +179,14 @@ const App: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveCustomer}
         initialData={editCustomerData}
+      />
+
+      <SyncModal 
+        isOpen={isSyncModalOpen} 
+        onClose={() => setIsSyncModalOpen(false)} 
+        onRestoreSuccess={() => {
+          loadAllData();
+        }}
       />
     </div>
   );
