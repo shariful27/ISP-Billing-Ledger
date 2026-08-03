@@ -1,30 +1,60 @@
 
 import React, { useState } from 'react';
-import { Customer, MONTHS_BN } from '../types.ts';
+import { Customer, MONTHS_BN, User } from '../types.ts';
 import { BkashModal } from './BkashModal.tsx';
 
 interface DashboardProps {
   customers: Customer[];
+  currentUser?: User | null;
   onSelectCustomer: (id: string) => void;
   onAddCustomer: () => void;
+  onBulkImport: () => void;
   onQuickPay: (customerId: string, monthKey: string, amount: number, method?: string, trxId?: string) => void;
   onDeleteCustomer: (id: string) => void;
+  onOpenExpenseModal?: () => void;
 }
 
 type FilterStatus = 'all' | 'paid' | 'partial' | 'due';
 
-export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustomer, onAddCustomer, onQuickPay, onDeleteCustomer }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  customers, 
+  currentUser,
+  onSelectCustomer, 
+  onAddCustomer, 
+  onBulkImport, 
+  onQuickPay, 
+  onDeleteCustomer,
+  onOpenExpenseModal
+}) => {
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.username.toLowerCase() === 'admin';
+  const perms = currentUser?.permissions || {
+    canAddCustomer: isAdmin,
+    canEditCustomer: isAdmin,
+    canDeleteCustomer: isAdmin,
+    canAddPayment: isAdmin,
+    canBulkImport: isAdmin
+  };
+
+  const canAddCustomer = isAdmin || perms.canAddCustomer;
+  const canDeleteCustomer = isAdmin || perms.canDeleteCustomer;
+  const canAddPayment = isAdmin || perms.canAddPayment;
+  const canBulkImport = isAdmin || perms.canBulkImport;
+  const isReadOnly = !canAddCustomer && !canDeleteCustomer && !canAddPayment && !canBulkImport;
+
   const now = new Date();
+
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
+  const [selectedZone, setSelectedZone] = useState<string>('all');
   
   const [paymentSelection, setPaymentSelection] = useState<{ id: string, name: string, fullAmount: number, inputAmount: number } | null>(null);
   const [bkashData, setBkashData] = useState<{ id: string, name: string, amount: number, monthKey: string } | null>(null);
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+
+  const uniqueZones = Array.from(new Set(customers.map(c => c.zone).filter(Boolean)));
 
   const sortedAndFiltered = [...customers]
     .filter(c => {
@@ -35,19 +65,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const filteredCustomers = sortedAndFiltered.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         (c.connectionName && c.connectionName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (c.mobile && c.mobile.includes(searchTerm));
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = c.name.toLowerCase().includes(term) || 
+                         (c.connectionName && c.connectionName.toLowerCase().includes(term)) ||
+                         (c.mobile && c.mobile.includes(term)) ||
+                         (c.sr && String(c.sr).toLowerCase().includes(term)) ||
+                         (c.zone && c.zone.toLowerCase().includes(term));
     
+    const matchesZone = selectedZone === 'all' || c.zone === selectedZone;
+
     const rec = c.records[currentMonthKey];
     const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
     const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
     const isDue = !rec || (rec.paidAmount === 0);
 
-    if (statusFilter === 'paid') return matchesSearch && isPaid;
-    if (statusFilter === 'partial') return matchesSearch && isPartial;
-    if (statusFilter === 'due') return matchesSearch && isDue;
-    return matchesSearch;
+    if (!matchesZone || !matchesSearch) return false;
+
+    if (statusFilter === 'paid') return isPaid;
+    if (statusFilter === 'partial') return isPartial;
+    if (statusFilter === 'due') return isDue;
+    return true;
   });
 
   const stats = filteredCustomers.reduce((acc, c) => {
@@ -177,7 +214,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
       <div className="no-print flex flex-col lg:flex-row items-stretch lg:items-center gap-4 bg-white p-4 rounded-[24px] border border-slate-200 shadow-sm">
         <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100 shrink-0">
           <select 
-            className="bg-transparent border-none text-xs font-black text-slate-700 outline-none px-4 py-2 cursor-pointer focus:ring-0"
+            className="bg-transparent border-none text-xs font-black text-slate-700 outline-none px-3 py-2 cursor-pointer focus:ring-0"
             value={selectedMonth} 
             onChange={e => setSelectedMonth(Number(e.target.value))}
           >
@@ -185,18 +222,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           </select>
           <div className="w-px h-4 bg-slate-300 self-center"></div>
           <select 
-            className="bg-transparent border-none text-xs font-black text-slate-700 outline-none px-4 py-2 cursor-pointer focus:ring-0"
+            className="bg-transparent border-none text-xs font-black text-slate-700 outline-none px-3 py-2 cursor-pointer focus:ring-0"
             value={selectedYear} 
             onChange={e => setSelectedYear(Number(e.target.value))}
           >
-            {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+            {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          {uniqueZones.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-slate-300 self-center"></div>
+              <select
+                className="bg-transparent border-none text-xs font-black text-blue-700 outline-none px-3 py-2 cursor-pointer focus:ring-0"
+                value={selectedZone}
+                onChange={e => setSelectedZone(e.target.value)}
+              >
+                <option value="all">সব জোন</option>
+                {uniqueZones.map((z, idx) => <option key={idx} value={z}>{z}</option>)}
+              </select>
+            </>
+          )}
         </div>
 
         <div className="relative flex-1">
           <input 
             type="text" 
-            placeholder="গ্রাহকের নাম বা আইডি দিয়ে খুঁজুন..." 
+            placeholder="ক্রমিক (Sr), গ্রাহকের নাম, মোবাইল, জোন বা আইডি/আইপি দিয়ে খুঁজুন..." 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all placeholder:text-slate-400"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
@@ -204,109 +254,175 @@ export const Dashboard: React.FC<DashboardProps> = ({ customers, onSelectCustome
           <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
 
-        <div className="flex items-center gap-3 overflow-x-auto pb-1 lg:pb-0 scrollbar-hide">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-hide">
+          {isReadOnly && (
+            <div className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 shrink-0">
+              <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              রিড-ওনলি মোড (Read Only)
+            </div>
+          )}
+
           <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
             {['all', 'paid', 'partial', 'due'].map((s) => (
               <button 
                 key={s}
                 onClick={() => setStatusFilter(s as FilterStatus)}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap ${statusFilter === s ? 'bg-white text-blue-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap ${statusFilter === s ? 'bg-white text-blue-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 {s === 'all' ? 'সব' : s === 'paid' ? 'পেইড' : s === 'partial' ? 'আংশিক' : 'বকেয়া'}
               </button>
             ))}
           </div>
+
+          {onOpenExpenseModal && (
+            <button 
+              onClick={onOpenExpenseModal} 
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-3 rounded-xl font-black text-xs shadow-md shadow-amber-200/50 transition-all active:scale-95 whitespace-nowrap"
+              title="ডেলি খরচের হিসাব দেখুন ও যোগ করুন"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              💸 ডেলি খরচ হিসাব
+            </button>
+          )}
+
+          {canBulkImport && (
+            <button onClick={onBulkImport} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-md shadow-emerald-100 transition-all active:scale-95 whitespace-nowrap">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              শিট বাল্ক ইমপোর্ট
+            </button>
+          )}
           
-          <button onClick={() => window.print()} className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-3 rounded-xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+          <button onClick={() => window.print()} className="flex items-center gap-1.5 bg-white border border-slate-200 px-4 py-3 rounded-xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            রিপোর্ট প্রিন্ট
+            প্রিন্ট
           </button>
           
-          <button onClick={onAddCustomer} className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95 whitespace-nowrap">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-            নতুন গ্রাহক
-          </button>
+          {canAddCustomer && (
+            <button onClick={onAddCustomer} className="flex items-center gap-1.5 bg-blue-600 text-white px-5 py-3 rounded-xl font-black text-xs hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95 whitespace-nowrap">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+              নতুন গ্রাহক
+            </button>
+          )}
         </div>
+
       </div>
 
       {/* 4. MAIN DATA TABLE */}
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-xl overflow-hidden print:border-slate-300 print:rounded-none">
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[900px] print:min-w-full">
+          <table className="w-full text-left border-collapse min-w-[950px] print:min-w-full">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 print:bg-slate-100">
-                <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest print:px-4 print:text-slate-900">গ্রাহক ও আইডি</th>
-                <th className="px-4 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center print:text-slate-900">নির্ধারিত</th>
-                <th className="px-4 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center print:text-slate-900">আদায়কৃত</th>
-                <th className="px-4 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center print:text-slate-900">বকেয়া</th>
-                <th className="px-4 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center print:text-slate-900">পেমেন্ট মেথড</th>
-                <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right no-print">অ্যাকশন</th>
+              <tr className="bg-slate-50 border-b border-slate-200 print:bg-slate-100 text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest print:text-slate-900">
+                <th className="px-4 py-5 text-center w-12">Sr</th>
+                <th className="px-4 py-5">ID / IP (কানেকশন)</th>
+                <th className="px-6 py-5">গ্রাহক নাম (Client Name)</th>
+                <th className="px-4 py-5">মোবাইল ও জোন</th>
+                <th className="px-4 py-5 text-center">মাসিক বিল</th>
+                <th className="px-4 py-5 text-center">আদায়কৃত</th>
+                <th className="px-4 py-5 text-center">বকেয়া (Due)</th>
+                <th className="px-4 py-5 text-center">অবস্থা</th>
+                <th className="px-6 py-5 text-right no-print">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-slate-300">
-              {filteredCustomers.map((c, index) => {
-                const rec = c.records[currentMonthKey];
-                const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
-                const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
-                const paidVal = rec ? rec.paidAmount : 0;
-                const dueVal = rec ? rec.due : c.monthlyBill;
-                
-                return (
-                  <tr key={c.id} onClick={() => !window.matchMedia('print').matches && onSelectCustomer(c.id)} className="hover:bg-blue-50/30 transition-colors print:hover:bg-transparent">
-                    <td className="px-8 py-6 print:px-4 print:py-3">
-                      <div className="flex items-center gap-4">
-                        <div className="no-print w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-sm">
-                          {c.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900 print:text-xs">{c.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter print:text-[8px]">ID: {c.connectionName}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-6 text-center print:py-3">
-                      <span className="text-sm font-bold text-slate-600 print:text-xs">৳{c.monthlyBill}</span>
-                    </td>
-                    <td className="px-4 py-6 text-center print:py-3">
-                      <span className={`text-base font-black print:text-xs ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                        ৳{paidVal}
-                      </span>
-                    </td>
-                    <td className="px-4 py-6 text-center print:py-3">
-                      <span className={`text-base font-black print:text-xs ${dueVal > 0 ? 'text-red-500' : 'text-slate-200'}`}>
-                        ৳{dueVal}
-                      </span>
-                    </td>
-                    <td className="px-4 py-6 text-center print:py-3">
-                       <span className={`text-[9px] font-black px-3 py-1 rounded-full border shadow-sm print:border-slate-300 print:shadow-none ${
-                          isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                          isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                          'bg-red-50 text-red-600 border-red-200'
-                       }`}>
-                          {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক' : 'বকেয়া'}
-                       </span>
-                       {rec?.paymentMethod && (
-                          <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase print:text-slate-600">{rec.paymentMethod}</p>
-                       )}
-                    </td>
-                    <td className="px-8 py-6 text-right no-print">
-                      <div className="flex items-center justify-end gap-3">
-                        {!isPaid && (
-                          <button 
-                            onClick={(e) => handlePaymentInitiation(e, c)} 
-                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black shadow-lg shadow-emerald-100 transition-all active:scale-95 whitespace-nowrap"
-                          >
-                            বিল জমা
-                          </button>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-12 text-slate-400 font-bold text-xs">
+                    কোনো গ্রাহকের তথ্য পাওয়া যায়নি
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((c, index) => {
+                  const rec = c.records[currentMonthKey];
+                  const isPaid = rec && rec.due <= 0 && rec.paidAmount > 0;
+                  const isPartial = rec && rec.paidAmount > 0 && rec.due > 0;
+                  const paidVal = rec ? rec.paidAmount : 0;
+                  const dueVal = rec ? rec.due : c.monthlyBill;
+                  
+                  return (
+                    <tr key={c.id} onClick={() => !window.matchMedia('print').matches && onSelectCustomer(c.id)} className="hover:bg-blue-50/30 transition-colors print:hover:bg-transparent cursor-pointer">
+                      {/* Sr */}
+                      <td className="px-4 py-5 text-center font-bold text-slate-400 text-xs">
+                        {c.sr || index + 1}
+                      </td>
+
+                      {/* ID / IP */}
+                      <td className="px-4 py-5">
+                        <span className="font-mono font-black text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                          {c.connectionName || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* Client Name */}
+                      <td className="px-6 py-5">
+                        <p className="text-sm font-black text-slate-900 print:text-xs">{c.name}</p>
+                        {c.address && <p className="text-[10px] text-slate-400 truncate max-w-[160px]">{c.address}</p>}
+                      </td>
+
+                      {/* Mobile & Zone */}
+                      <td className="px-4 py-5">
+                        <p className="text-xs font-bold text-slate-800">{c.mobile || '-'}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                          {c.zone ? `জোন: ${c.zone}` : 'সাধারণ জোন'}
+                        </p>
+                      </td>
+
+                      {/* Monthly Bill */}
+                      <td className="px-4 py-5 text-center print:py-3">
+                        <span className="text-sm font-bold text-slate-700 print:text-xs">৳{c.monthlyBill}</span>
+                      </td>
+
+                      {/* Paid Amount */}
+                      <td className="px-4 py-5 text-center print:py-3">
+                        <span className={`text-sm sm:text-base font-black print:text-xs ${paidVal > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                          ৳{paidVal}
+                        </span>
+                      </td>
+
+                      {/* Due Amount */}
+                      <td className="px-4 py-5 text-center print:py-3">
+                        <span className={`text-sm sm:text-base font-black print:text-xs ${dueVal > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                          ৳{dueVal}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-5 text-center print:py-3">
+                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-full border shadow-sm print:border-slate-300 print:shadow-none ${
+                            isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                            isPartial ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                            'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                            {isPaid ? 'পরিশোধিত' : isPartial ? 'আংশিক' : 'বকেয়া'}
+                        </span>
+                        {rec?.paymentMethod && (
+                            <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase print:text-slate-600">{rec.paymentMethod}</p>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onDeleteCustomer(c.id); }} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-5 text-right no-print">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isPaid && canAddPayment && (
+                            <button 
+                              onClick={(e) => handlePaymentInitiation(e, c)} 
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black shadow-md shadow-emerald-100 transition-all active:scale-95 whitespace-nowrap"
+                            >
+                              বিল জমা
+                            </button>
+                          )}
+                          {canDeleteCustomer && (
+                            <button onClick={(e) => { e.stopPropagation(); onDeleteCustomer(c.id); }} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="মুছে ফেলুন">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
             <tfoot className="hidden print:table-footer-group">
                <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-900">

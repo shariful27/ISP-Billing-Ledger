@@ -1,35 +1,76 @@
 
 import React, { useState } from 'react';
 import { authService } from '../services/authService.ts';
+import { SiteLogo } from './SiteLogo.tsx';
+import { SiteSettings } from '../types.ts';
 import { SyncModal } from './SyncModal.tsx';
+import { firebaseService } from '../services/firebaseService';
 
 interface AuthProps {
   onLoginSuccess: () => void;
+  settings?: SiteSettings;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
+export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     if (isLogin) {
+      try {
+        // 1. Try to fetch user credentials directly from Firebase Firestore first
+        const cloudUser = await firebaseService.fetchUserFromCloud(username);
+        
+        if (cloudUser) {
+          if (cloudUser.password === password) {
+            // Save/sync this user to the local users list
+            const localUsers = authService.getUsers();
+            const existsIdx = localUsers.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+            if (existsIdx !== -1) {
+              localUsers[existsIdx] = cloudUser;
+            } else {
+              localUsers.push(cloudUser);
+            }
+            authService.saveUsers(localUsers);
+
+            // Determine master account username to load correct data
+            let masterUname = username;
+            if (cloudUser.role === 'staff' && cloudUser.createdBy) {
+              masterUname = cloudUser.createdBy;
+            }
+
+            // 2. Fetch the latest business data backup from Cloud for this master account
+            await firebaseService.downloadBackupFromCloud(masterUname);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync data from cloud during login, continuing with local cache:', err);
+      }
+
+      // 3. Complete login via local authService (which now has synced credentials and data)
       if (authService.login({ username, password })) {
+        setIsLoading(false);
         onLoginSuccess();
       } else {
+        setIsLoading(false);
         setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
       }
     } else {
-      if (authService.signup({ username, password })) {
+      const result = authService.signup({ username, password });
+      setIsLoading(false);
+      if (result.success) {
         setIsLogin(true);
-        setError('একাউন্ট তৈরি হয়েছে! এখন লগইন করুন।');
+        setError(result.message);
       } else {
-        setError('এই ইউজারনেম ইতিমধ্যে ব্যবহৃত হয়েছে!');
+        setError(result.message);
       }
     }
   };
@@ -44,19 +85,25 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         <div className="bg-white rounded-[48px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] border border-white overflow-hidden">
           
           {/* Header Section */}
-          <div className="bg-slate-900 pt-14 pb-12 px-10 text-center relative overflow-hidden">
+          <div className="bg-slate-900 pt-10 pb-10 px-8 text-center relative overflow-hidden flex flex-col items-center">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
             
-            {/* Logo Icon */}
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-[28px] shadow-[0_12px_24px_-8px_rgba(37,99,235,0.5)] mb-6 transform -rotate-3 hover:rotate-0 transition-transform duration-500">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            
-            <h1 className="text-3xl font-black text-white tracking-tight">ISP লেজার প্রো</h1>
-            <p className="text-blue-400/80 text-[11px] font-bold uppercase tracking-[0.3em] mt-2">Enterprise Cloud Billing</p>
+            {/* Logo Icon / Custom Logo */}
+            {settings ? (
+              <SiteLogo settings={settings} size="lg" lightMode={false} />
+            ) : (
+              <>
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-[28px] shadow-[0_12px_24px_-8px_rgba(37,99,235,0.5)] mb-4 transform -rotate-3 hover:rotate-0 transition-transform duration-500">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h1 className="text-3xl font-black text-white tracking-tight">ISP লেজার প্রো</h1>
+                <p className="text-blue-400/80 text-[11px] font-bold uppercase tracking-[0.3em] mt-2">Enterprise Cloud Billing</p>
+              </>
+            )}
           </div>
+
 
           {/* Form Section */}
           <div className="px-10 py-12">
@@ -124,39 +171,34 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
               <button
                 type="submit"
-                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-[20px] transition-all shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_32px_-10px_rgba(37,99,235,0.5)] active:scale-[0.98] text-sm tracking-wide mt-4"
+                disabled={isLoading}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-[20px] transition-all shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_32px_-10px_rgba(37,99,235,0.5)] active:scale-[0.98] text-sm tracking-wide mt-4 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                {isLogin ? 'লগইন করুন' : 'রেজিস্ট্রেশন করুন'}
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    মেঘের সাথে সিঙ্ক হচ্ছে...
+                  </>
+                ) : (
+                  isLogin ? 'লগইন করুন' : 'রেজিস্ট্রেশন করুন'
+                )}
               </button>
             </form>
 
-            {/* Bottom Actions */}
-            <div className="mt-10 pt-10 border-t border-slate-50 space-y-6">
-              <p className="text-slate-400 text-xs font-bold text-center">
-                {isLogin ? 'আপনার কি কোনো একাউন্ট নেই?' : 'ইতিমধ্যে একাউন্ট আছে?'}
-                <button
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setError('');
-                  }}
-                  className="ml-2 text-blue-600 hover:text-indigo-600 font-black transition-colors"
-                >
-                  {isLogin ? 'নতুন তৈরি করুন' : 'এখনই লগইন করুন'}
-                </button>
-              </p>
-              
-              <div className="flex justify-center">
-                <button 
-                  onClick={() => setIsSyncModalOpen(true)}
-                  className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-100 hover:text-slate-900 transition-all border border-transparent hover:border-slate-200"
-                >
-                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                  </svg>
-                  ডাটা ব্যাকআপ ও রিস্টোর
-                </button>
-              </div>
-            </div>
+            <div className="border-t border-slate-100 my-6"></div>
+
+            <button
+              onClick={() => setIsSyncModalOpen(true)}
+              className="w-full py-3.5 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-[16px] border border-dashed border-slate-200 hover:border-blue-200 transition-all font-black text-xs flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v8" />
+              </svg>
+              অন্য ব্রাউজারের ব্যাকআপ রিস্টোর করুন
+            </button>
           </div>
         </div>
         
@@ -165,15 +207,13 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           &copy; 2025 <span className="text-slate-600">ISP LEDGER PRO</span> • SECURED ACCESS
         </p>
       </div>
-
+      
       <SyncModal 
         isOpen={isSyncModalOpen} 
         onClose={() => setIsSyncModalOpen(false)} 
-        onRestoreSuccess={() => {
-          setError('ডাটা সফলভাবে রিস্টোর হয়েছে! এখন লগইন করুন।');
-        }}
+        onRestoreSuccess={onLoginSuccess} 
       />
-      
+
       {/* Small UI detail for spacing when keyboard is open on mobile */}
       <div className="h-4 sm:hidden"></div>
     </div>

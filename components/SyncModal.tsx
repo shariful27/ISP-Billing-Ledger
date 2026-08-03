@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { syncService } from '../services/syncService.ts';
 
@@ -8,95 +7,225 @@ interface SyncModalProps {
   onRestoreSuccess: () => void;
 }
 
+const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.warn("Clipboard API failed, trying legacy fallback:", err);
+  }
+
+  // Fallback
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error("Fallback copy failed:", err);
+    return false;
+  }
+};
+
 export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose, onRestoreSuccess }) => {
   const [syncCode, setSyncCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   if (!isOpen) return null;
 
-  const handleGenerate = () => {
-    const code = syncService.generateSyncCode();
-    setSyncCode(code);
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError('');
+    setSuccess('');
+    try {
+      const code = await syncService.generateShortSyncCode();
+      setGeneratedCode(code);
+      const ok = await copyTextToClipboard(code);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err: any) {
+      setError(err.message || 'কোড জেনারেট করতে সমস্যা হয়েছে!');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handleRestore = () => {
-    if (syncService.restoreFromCode(syncCode)) {
-      setStatus('success');
-      setTimeout(() => {
-        onRestoreSuccess();
-        onClose();
-      }, 1500);
-    } else {
-      setStatus('error');
+  const handleRestore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!syncCode.trim()) return;
+
+    setIsRestoring(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const ok = await syncService.restoreFromSyncCode(syncCode);
+      if (ok) {
+        setSuccess('ডাটা সফলভাবে রিস্টোর করা হয়েছে!');
+        setSyncCode('');
+        setTimeout(() => {
+          onRestoreSuccess();
+          onClose();
+        }, 1500);
+      } else {
+        setError('ডাটা রিস্টোর করতে ব্যর্থ হয়েছে। পুনরায় চেষ্টা করুন।');
+      }
+    } catch (err: any) {
+      setError(err.message || 'ভুল কোড অথবা মেয়াদ শেষ হয়ে গেছে!');
+    } finally {
+      setIsRestoring(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[250] flex items-center justify-center p-4">
-      <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden">
-        <div className="bg-blue-600 p-8 text-center text-white relative">
-          <button onClick={onClose} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-          <div className="bg-white/20 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4">
-             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-          </div>
-          <h2 className="text-xl font-black">ক্লাউড সিঙ্ক ও ব্যাকআপ</h2>
-          <p className="text-blue-100 text-xs mt-1">যেকোনো ডিভাইসে ডাটা ট্রান্সফার করুন</p>
-        </div>
-
-        <div className="p-8 space-y-8">
-          {/* Export Section */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">১. সিঙ্ক কোড তৈরি করুন</h3>
-               {copied && <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded">কপি হয়েছে!</span>}
-            </div>
-            <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">আপনার সব গ্রাহকের ডাটা এবং ইউজার একাউন্ট একটি কোডে রূপান্তর করতে নিচের বাটনে ক্লিক করুন। এই কোডটি অন্য ডিভাইসে ব্যবহার করতে পারবেন।</p>
-            <button 
-              onClick={handleGenerate}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-              কোড জেনারেট ও কপি করুন
-            </button>
-          </div>
-
-          <div className="relative">
-             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center" aria-hidden="true">
-                <div className="w-full border-t border-slate-100"></div>
-             </div>
-             <div className="relative flex justify-center">
-                <span className="bg-white px-4 text-[10px] font-black text-slate-300 uppercase tracking-widest italic">অথবা</span>
-             </div>
-          </div>
-
-          {/* Import Section */}
-          <div>
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">২. ডাটা রিস্টোর করুন</h3>
-            <textarea 
-              className={`w-full bg-slate-50 border-2 rounded-2xl px-5 py-4 text-[10px] font-mono focus:bg-white transition-all outline-none resize-none h-24 ${status === 'error' ? 'border-red-200' : 'border-slate-100 focus:border-blue-500'}`}
-              placeholder="এখানে সিঙ্ক কোডটি পেস্ট করুন..."
-              value={syncCode}
-              onChange={(e) => setSyncCode(e.target.value)}
-            />
-            {status === 'error' && <p className="text-[10px] text-red-500 font-bold mt-2 ml-1 italic">সঠিক সিঙ্ক কোড প্রদান করুন!</p>}
-            
-            <button 
-              onClick={handleRestore}
-              className="w-full mt-4 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95"
-            >
-              {status === 'success' ? 'সফলভাবে রিস্টোর হয়েছে!' : 'ডাটা ইমপোর্ট করুন'}
-            </button>
-          </div>
-        </div>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col font-['Hind_Siliguri'] animate-in fade-in zoom-in-95 duration-200">
         
-        <div className="bg-slate-50 py-4 text-center border-t border-slate-100">
-           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">ডাটা ব্যাকআপ রাখা অত্যন্ত জরুরি</p>
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v8" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-800">ক্লাউড ব্যাকআপ ও রিস্টোর</h3>
+              <p className="text-[10px] text-slate-400 font-bold">অন্যান্য ব্রাউজার বা ডিভাইসে ডাটা ট্রান্সফার করুন</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-6 overflow-y-auto">
+          {error && (
+            <div className="p-3.5 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-xs font-bold">
+              {success}
+            </div>
+          )}
+
+          {/* Option 1: Backup / Generate Code */}
+          <div className="space-y-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">১. ব্যাকআপ করুন (ডেটা ক্লাউডে সেভ করুন)</span>
+            
+            {generatedCode ? (
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 mb-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">আপনার সংক্ষিপ্ত সিঙ্ক কোড</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-black text-blue-600 tracking-wider font-mono">{generatedCode}</span>
+                  <button 
+                    onClick={async () => {
+                      const ok = await copyTextToClipboard(generatedCode);
+                      if (ok) {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                    className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                    title="কোড কপি করুন"
+                  >
+                    {copied ? (
+                      <span className="text-[10px] font-bold text-emerald-600">কপিড!</span>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <span className="text-[9px] text-slate-400 font-bold">মেয়াদ: ৩০ দিন (যেকোনো ডিভাইসে রিস্টোর করতে পারবেন)</span>
+              </div>
+            ) : (
+              <button 
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
+              >
+                {isGenerating ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    কোড তৈরি হচ্ছে...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    ব্যাকআপ কোড তৈরি করুন
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          <div className="border-t border-slate-100 my-4"></div>
+
+          {/* Option 2: Restore from code */}
+          <form onSubmit={handleRestore} className="space-y-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">২. রিস্টোর করুন (পূর্বের ডাটা ফিরে পান)</span>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                required
+                maxLength={10}
+                placeholder="৬-সংখ্যার কোডটি লিখুন"
+                value={syncCode}
+                onChange={(e) => setSyncCode(e.target.value.replace(/\D/g, ''))}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none font-bold text-center text-slate-800 text-sm tracking-wider"
+              />
+              <button 
+                type="submit"
+                disabled={isRestoring || !syncCode.trim()}
+                className="px-5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 disabled:bg-slate-300"
+              >
+                {isRestoring ? (
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    রিস্টোর
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

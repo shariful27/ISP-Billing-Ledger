@@ -1,0 +1,179 @@
+import { initializeApp } from 'firebase/app';
+import { initializeFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
+import { User } from '../types';
+
+// Initialize Firebase
+const app = initializeApp({
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  storageBucket: firebaseConfig.storageBucket,
+  messagingSenderId: firebaseConfig.messagingSenderId,
+  appId: firebaseConfig.appId,
+});
+
+// Support custom database ID if present
+const db = firebaseConfig.firestoreDatabaseId
+  ? initializeFirestore(app, { databaseId: firebaseConfig.firestoreDatabaseId })
+  : initializeFirestore(app, {});
+
+export const firebaseService = {
+  // Sync all users from cloud to local storage (so they can log in offline or from any browser)
+  syncUsersFromCloud: async (): Promise<void> => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'isp_users'));
+      const cloudUsers: User[] = [];
+      querySnapshot.forEach((doc) => {
+        cloudUsers.push(doc.data() as User);
+      });
+
+      if (cloudUsers.length > 0) {
+        const localData = localStorage.getItem('isp_users_db');
+        let mergedUsers: User[] = cloudUsers;
+
+        if (localData) {
+          try {
+            const localUsers: User[] = JSON.parse(localData);
+            const userMap = new Map<string, User>();
+            // Add cloud users first (cloud is source of truth)
+            cloudUsers.forEach(u => userMap.set(u.username.toLowerCase(), u));
+            // Add local users if not in cloud
+            localUsers.forEach(u => {
+              if (!userMap.has(u.username.toLowerCase())) {
+                userMap.set(u.username.toLowerCase(), u);
+                // Also upload to cloud so they sync back
+                firebaseService.saveUserToCloud(u).catch(console.error);
+              }
+            });
+            mergedUsers = Array.from(userMap.values());
+          } catch {
+            // Ignore parse errors, use cloudUsers
+          }
+        }
+
+        localStorage.setItem('isp_users_db', JSON.stringify(mergedUsers));
+      }
+    } catch (e) {
+      console.error('Failed to sync users from cloud:', e);
+    }
+  },
+
+  // Save/Update user to cloud
+  saveUserToCloud: async (user: User): Promise<void> => {
+    try {
+      const cleanUsername = user.username.trim().toLowerCase();
+      if (!cleanUsername) return;
+      await setDoc(doc(db, 'isp_users', cleanUsername), {
+        username: user.username,
+        password: user.password,
+        role: user.role,
+        permissions: user.permissions || null,
+        createdBy: user.createdBy || null,
+        createdAt: user.createdAt || Date.now(),
+        licenseDays: user.licenseDays || null,
+        licenseExpiryDate: user.licenseExpiryDate || null,
+        siteName: user.siteName || null,
+        siteTagline: user.siteTagline || null,
+        logoPreset: user.logoPreset || null,
+        logoUrl: user.logoUrl || null,
+      }, { merge: true });
+    } catch (e) {
+      console.error('Failed to save user to cloud:', e);
+    }
+  },
+
+  // Delete user from cloud
+  deleteUserFromCloud: async (username: string): Promise<void> => {
+    try {
+      const cleanUsername = username.trim().toLowerCase();
+      if (!cleanUsername) return;
+      await deleteDoc(doc(db, 'isp_users', cleanUsername));
+    } catch (e) {
+      console.error('Failed to delete user from cloud:', e);
+    }
+  },
+
+  // Fetch a specific user's credential details directly from cloud
+  fetchUserFromCloud: async (username: string): Promise<User | null> => {
+    try {
+      const cleanUsername = username.trim().toLowerCase();
+      if (!cleanUsername) return null;
+      const docSnap = await getDoc(doc(db, 'isp_users', cleanUsername));
+      if (docSnap.exists()) {
+        return docSnap.data() as User;
+      }
+      return null;
+    } catch (e) {
+      console.error('Failed to fetch user from cloud:', e);
+      return null;
+    }
+  },
+
+  // Upload full business backup (customers, settings, expenses) for a master username
+  uploadBackupToCloud: async (masterUsername: string): Promise<void> => {
+    try {
+      const uname = masterUsername.trim().toLowerCase();
+      if (!uname) return;
+
+      const billingKey = `isp_billing_data_v2_${masterUsername}`;
+      const settingsKey = `isp_site_settings_${masterUsername}`;
+      const expensesKey = `isp_daily_expenses_v1_${masterUsername}`;
+
+      const billingDataStr = localStorage.getItem(billingKey) || '[]';
+      const settingsDataStr = localStorage.getItem(settingsKey) || '{}';
+      const expensesDataStr = localStorage.getItem(expensesKey) || '[]';
+
+      const lastUpdated = Date.now();
+      localStorage.setItem(`isp_last_updated_${uname}`, String(lastUpdated));
+
+      await setDoc(doc(db, 'isp_backups', uname), {
+        uname: masterUsername,
+        customers: billingDataStr,
+        settings: settingsDataStr,
+        expenses: expensesDataStr,
+        lastUpdated,
+      }, { merge: true });
+
+      console.log(`Cloud backup completed for ${masterUsername}`);
+    } catch (e) {
+      console.error('Failed to upload backup to cloud:', e);
+    }
+  },
+
+  // Download and restore full business backup for a master username
+  downloadBackupFromCloud: async (masterUsername: string): Promise<boolean> => {
+    try {
+      const uname = masterUsername.trim().toLowerCase();
+      if (!uname) return false;
+
+      const docSnap = await getDoc(doc(db, 'isp_backups', uname));
+      if (!docSnap.exists()) {
+        console.log(`No cloud backup found for ${masterUsername}`);
+        return false;
+      }
+
+      const data = docSnap.data();
+      const billingKey = `isp_billing_data_v2_${masterUsername}`;
+      const settingsKey = `isp_site_settings_${masterUsername}`;
+      const expensesKey = `isp_daily_expenses_v1_${masterUsername}`;
+
+      if (data.customers) localStorage.setItem(billingKey, data.customers);
+      if (data.settings) localStorage.setItem(settingsKey, data.settings);
+      if (data.expenses) localStorage.setItem(expensesKey, data.expenses);
+      if (data.lastUpdated) localStorage.setItem(`isp_last_updated_${uname}`, String(data.lastUpdated));
+
+      // Dispatch events to update UI
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new Event('isp_sync'));
+      }
+
+      console.log(`Cloud backup restored for ${masterUsername}`);
+      return true;
+    } catch (e) {
+      console.error('Failed to download backup from cloud:', e);
+      return false;
+    }
+  }
+};

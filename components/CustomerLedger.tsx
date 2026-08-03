@@ -1,9 +1,12 @@
 
 import React, { useState } from 'react';
-import { Customer, MONTHS_BN, MonthlyRecord } from '../types.ts';
+import { Customer, MONTHS_BN, MonthlyRecord, User, SiteSettings } from '../types.ts';
+import { SiteLogo } from './SiteLogo.tsx';
 
 interface CustomerLedgerProps {
   customer: Customer;
+  currentUser?: User | null;
+  settings?: SiteSettings;
   onBack: () => void;
   onUpdateRecord: (monthKey: string, record: Partial<MonthlyRecord>) => void;
   onEditCustomer: () => void;
@@ -11,11 +14,30 @@ interface CustomerLedgerProps {
 }
 
 export const CustomerLedger: React.FC<CustomerLedgerProps> = ({ 
-  customer, onBack, onUpdateRecord, onEditCustomer, onDeleteCustomer 
+  customer, 
+  currentUser,
+  settings,
+  onBack, 
+  onUpdateRecord, 
+  onEditCustomer, 
+  onDeleteCustomer 
 }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.username.toLowerCase() === 'admin';
+  const perms = currentUser?.permissions || {
+    canAddCustomer: isAdmin,
+    canEditCustomer: isAdmin,
+    canDeleteCustomer: isAdmin,
+    canAddPayment: isAdmin,
+    canBulkImport: isAdmin
+  };
+
+  const canEditCustomer = isAdmin || perms.canEditCustomer;
+  const canAddPayment = isAdmin || perms.canAddPayment;
+
   const recordKeys = Object.keys(customer.records).sort((a, b) => b.localeCompare(a));
+
 
   // Calculate overall totals for the print summary
   const totalSummary = recordKeys.reduce((acc, key) => {
@@ -40,7 +62,9 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
           ফিরে যান
         </button>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button onClick={onEditCustomer} className="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[10px] sm:text-[11px] font-bold hover:bg-slate-50 transition-all">তথ্য পরিবর্তন</button>
+          {canEditCustomer && (
+            <button onClick={onEditCustomer} className="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[10px] sm:text-[11px] font-bold hover:bg-slate-50 transition-all">তথ্য পরিবর্তন</button>
+          )}
           <button onClick={() => window.print()} className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-2.5 rounded-lg text-[10px] sm:text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-md transition-all">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             প্রিন্ট করুন
@@ -54,9 +78,16 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
         {/* Print Header Logo/Name */}
         <div className="print-only p-8 border-b-2 border-slate-800 flex justify-between items-center">
            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">ISP LEDGER PRO</h1>
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">Smart Billing Management Solution</p>
+              {settings ? (
+                <SiteLogo settings={settings} size="lg" lightMode={true} />
+              ) : (
+                <>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tighter">ISP LEDGER PRO</h1>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">Smart Billing Management Solution</p>
+                </>
+              )}
            </div>
+
            <div className="text-right">
               <p className="text-xs font-bold text-slate-800">রিপোর্ট জেনারেট তারিখ:</p>
               <p className="text-xs font-black text-blue-600">{new Date().toLocaleDateString('bn-BD')}</p>
@@ -70,9 +101,22 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
                <p className="text-[9px] sm:text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">গ্রাহকের হিসাব বিবরণী</p>
                <h2 className="text-xl sm:text-3xl font-black text-slate-800 leading-tight print:text-2xl">{customer.name}</h2>
                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 sm:mt-2">
-                 <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-tighter bg-slate-100 print:bg-slate-50 px-2 py-0.5 rounded">আইডি: {customer.connectionName}</span>
-                 <span className="hidden sm:inline w-1 h-1 rounded-full bg-slate-300"></span>
-                 <span className="text-[10px] sm:text-xs font-bold text-slate-500">মোবাইল: {customer.mobile}</span>
+                 {customer.sr && (
+                   <span className="text-[10px] sm:text-xs font-black text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded">
+                     Sr: {customer.sr}
+                   </span>
+                 )}
+                 <span className="text-[10px] sm:text-xs font-mono font-bold text-slate-700 uppercase bg-slate-100 print:bg-slate-50 px-2 py-0.5 rounded">
+                   ID/IP: {customer.connectionName}
+                 </span>
+                 <span className="text-[10px] sm:text-xs font-bold text-slate-600">
+                   মোবাইল: {customer.mobile || '-'}
+                 </span>
+                 {customer.zone && (
+                   <span className="text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                     জোন: {customer.zone}
+                   </span>
+                 )}
                </div>
                <p className="text-[10px] sm:text-[11px] text-slate-400 mt-2 font-medium italic print:text-slate-600">{customer.address || 'ঠিকানা: উল্লেখ নেই'}</p>
             </div>
@@ -130,7 +174,7 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
                       </td>
                       <td className="py-4 px-2 sm:px-4 text-slate-500 text-[10px] sm:text-sm border-r border-slate-100 print:border-slate-200">৳{record.expectedBill}</td>
                       <td className="py-4 px-2 sm:px-4 border-r border-slate-100 print:border-slate-200">
-                        {isEditing ? (
+                        {isEditing && canAddPayment ? (
                           <input 
                             type="number"
                             className="w-16 sm:w-24 bg-white border-2 border-blue-500 rounded-md p-1.5 text-center font-bold text-slate-800 outline-none shadow-sm text-xs sm:text-sm no-print"
@@ -143,8 +187,13 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
                           />
                         ) : (
                           <div 
-                            className={`font-black text-sm sm:text-base transition-colors ${record.paidAmount > 0 ? 'text-slate-800' : 'text-slate-300'} no-print cursor-pointer hover:text-blue-600`}
-                            onClick={() => setEditingKey(key)}
+                            className={`font-black text-sm sm:text-base transition-colors ${record.paidAmount > 0 ? 'text-slate-800' : 'text-slate-300'} no-print ${canAddPayment ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                            onClick={() => {
+                              if (canAddPayment) {
+                                setEditingKey(key);
+                              }
+                            }}
+                            title={canAddPayment ? 'আদায়কৃত টাকা পরিবর্তন করুন' : 'আদায়কৃত টাকা পরিবর্তনের অনুমতি নেই'}
                           >
                             ৳{record.paidAmount}
                           </div>
@@ -157,11 +206,18 @@ export const CustomerLedger: React.FC<CustomerLedgerProps> = ({
                         </span>
                       </td>
                       <td className="py-4 px-4 sm:px-6 text-right">
-                         {isEditing ? (
+                         {isEditing && canAddPayment ? (
                             <button onClick={() => setEditingKey(null)} className="no-print text-[9px] sm:text-[10px] bg-blue-600 text-white px-3 sm:px-4 py-1.5 rounded-md font-bold hover:bg-blue-700 transition-colors shadow-sm">সেভ</button>
                          ) : (
-                           <div className="cursor-pointer group no-print" onClick={() => setEditingKey(key)}>
-                              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-blue-500 transition-colors">{record.paymentDate || 'তারিখ?'}</p>
+                           <div 
+                             className={`no-print ${canAddPayment ? 'cursor-pointer group' : ''}`} 
+                             onClick={() => {
+                               if (canAddPayment) {
+                                 setEditingKey(key);
+                               }
+                             }}
+                           >
+                              <p className={`text-[8px] sm:text-[9px] font-bold text-slate-400 ${canAddPayment ? 'group-hover:text-blue-500' : ''} transition-colors`}>{record.paymentDate || 'তারিখ?'}</p>
                               <p className="text-[8px] sm:text-[9px] font-medium text-slate-400 truncate max-w-[80px] sm:max-w-[140px] ml-auto mt-0.5 italic">{record.remarks || '-'}</p>
                            </div>
                          )}

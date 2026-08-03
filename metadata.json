@@ -1,5 +1,8 @@
 {
   "name": "ISP Billing Ledger",
-  "description": "A comprehensive internet customer monthly billing and account management system for small ISPs, featuring yearly tracking and due management.",
-  "requestFramePermissions": []
+  "description": "A comprehensive internet customer monthly billing and account management system for small ISPs, featuring Google Sheet bulk import, yearly tracking, zone filtering, and due management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
