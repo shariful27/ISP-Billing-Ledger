@@ -50,9 +50,16 @@ const App: React.FC = () => {
     };
     window.addEventListener('storage', handleSync);
     window.addEventListener('isp_sync', handleSync);
+
+    // Periodically sync user list from cloud in the background to ensure any device picks up new accounts/passwords
+    const interval = setInterval(() => {
+      firebaseService.syncUsersFromCloud().catch(e => console.warn('Background users sync issue:', e));
+    }, 15000); // every 15 seconds
+
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('isp_sync', handleSync);
+      clearInterval(interval);
     };
   }, [loadAllData]);
 

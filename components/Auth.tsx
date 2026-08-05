@@ -25,44 +25,69 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
     setIsLoading(true);
 
     if (isLogin) {
+      // 1. Try local login first. If credentials match locally, log in INSTANTLY with zero delay!
+      const isLocalSuccess = authService.login({ username, password });
+      
+      if (isLocalSuccess) {
+        setIsLoading(false);
+        onLoginSuccess();
+
+        // Download the latest business data in the background without blocking the login transition
+        (async () => {
+          try {
+            const users = authService.getUsers();
+            const localUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+            if (localUser) {
+              let masterUname = localUser.username;
+              if (localUser.role === 'staff' && localUser.createdBy) {
+                masterUname = localUser.createdBy;
+              }
+              await firebaseService.downloadBackupFromCloud(masterUname);
+            }
+          } catch (err) {
+            console.warn('Background backup download skipped or failed:', err);
+          }
+        })();
+        return;
+      }
+
+      // 2. If local login fails (e.g. brand new browser or password changed), fetch credentials from Cloud
       try {
-        // 1. Try to fetch user credentials directly from Firebase Firestore first
         const cloudUser = await firebaseService.fetchUserFromCloud(username);
         
-        if (cloudUser) {
-          if (cloudUser.password === password) {
-            // Save/sync this user to the local users list
-            const localUsers = authService.getUsers();
-            const existsIdx = localUsers.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
-            if (existsIdx !== -1) {
-              localUsers[existsIdx] = cloudUser;
-            } else {
-              localUsers.push(cloudUser);
-            }
-            authService.saveUsers(localUsers);
+        if (cloudUser && cloudUser.password === password) {
+          // Sync this user to the local users list
+          const localUsers = authService.getUsers();
+          const existsIdx = localUsers.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+          if (existsIdx !== -1) {
+            localUsers[existsIdx] = cloudUser;
+          } else {
+            localUsers.push(cloudUser);
+          }
+          authService.saveUsers(localUsers);
 
-            // Determine master account username to load correct data
-            let masterUname = username;
-            if (cloudUser.role === 'staff' && cloudUser.createdBy) {
-              masterUname = cloudUser.createdBy;
-            }
+          // Determine master account username to load correct data
+          let masterUname = username;
+          if (cloudUser.role === 'staff' && cloudUser.createdBy) {
+            masterUname = cloudUser.createdBy;
+          }
 
-            // 2. Fetch the latest business data backup from Cloud for this master account
-            await firebaseService.downloadBackupFromCloud(masterUname);
+          // Fetch the latest business data backup from Cloud for this master account
+          await firebaseService.downloadBackupFromCloud(masterUname);
+
+          // Now complete local login which will definitely succeed
+          if (authService.login({ username, password })) {
+            setIsLoading(false);
+            onLoginSuccess();
+            return;
           }
         }
       } catch (err) {
-        console.warn('Could not sync data from cloud during login, continuing with local cache:', err);
+        console.warn('Could not sync credentials from cloud during login:', err);
       }
 
-      // 3. Complete login via local authService (which now has synced credentials and data)
-      if (authService.login({ username, password })) {
-        setIsLoading(false);
-        onLoginSuccess();
-      } else {
-        setIsLoading(false);
-        setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
-      }
+      setIsLoading(false);
+      setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
     } else {
       const result = authService.signup({ username, password });
       setIsLoading(false);
