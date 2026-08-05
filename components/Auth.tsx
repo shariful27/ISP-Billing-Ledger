@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { authService } from '../services/authService.ts';
 import { SiteLogo } from './SiteLogo.tsx';
-import { SiteSettings } from '../types.ts';
+import { User, SiteSettings } from '../types.ts';
 import { SyncModal } from './SyncModal.tsx';
 import { firebaseService } from '../services/firebaseService';
 
@@ -18,6 +18,43 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
   const [error, setError] = useState('');
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingApprovalInfo, setPendingApprovalInfo] = useState<{ username: string; deviceId: string; deviceName: string } | null>(null);
+  const [isCheckingApproval, setIsCheckingApproval] = useState(false);
+
+  const checkDeviceApprovalStatus = async (uname: string, devId: string) => {
+    setIsCheckingApproval(true);
+    setError('');
+    try {
+      const reqDoc = await firebaseService.getDeviceRequest(uname, devId);
+      if (reqDoc) {
+        if (reqDoc.status === 'approved') {
+          setPendingApprovalInfo(null);
+          // Complete standard login directly since they have correct local credentials
+          if (authService.login({ username: uname, password })) {
+            onLoginSuccess();
+            // Background cloud backup load
+            firebaseService.downloadBackupFromCloud(uname).catch(err => console.warn(err));
+          } else {
+            setError('সিস্টেম রিস্টোর করতে সমস্যা হয়েছে, অনুগ্রহ করে আবার লগইন করুন।');
+          }
+        } else if (reqDoc.status === 'rejected') {
+          setPendingApprovalInfo(null);
+          setError('আপনার এই ডিভাইসটির অনুমোদন এডমিন দ্বারা প্রত্যাখ্যান করা হয়েছে!');
+        } else {
+          // Still pending, show message
+          alert('আপনার অনুরোধটি এখনো পেন্ডিং অবস্থায় আছে। অনুগ্রহ করে এডমিনের অনুমোদনের জন্য অপেক্ষা করুন।');
+        }
+      } else {
+        alert('ডিভাইস অনুমোদন তথ্য পাওয়া যায়নি। অনুগ্রহ করে আবার লগইন করুন।');
+        setPendingApprovalInfo(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('সংযোগ করা যাচ্ছে না, আবার চেষ্টা করুন।');
+    } finally {
+      setIsCheckingApproval(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,69 +62,90 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
     setIsLoading(true);
 
     if (isLogin) {
-      // 1. Try local login first. If credentials match locally, log in INSTANTLY with zero delay!
-      const isLocalSuccess = authService.login({ username, password });
+      const cleanUsername = username.trim().toLowerCase();
       
-      if (isLocalSuccess) {
+      // Before checking credentials, verify if they exist locally or on the cloud
+      let matchedUser: User | null = null;
+      const localUsers = authService.getUsers();
+      const localMatched = localUsers.find(u => u.username.toLowerCase() === cleanUsername);
+      if (localMatched && localMatched.password === password) {
+        matchedUser = localMatched;
+      } else {
+        // Try cloud fetch if local lookup fails
+        try {
+          const cloudUser = await firebaseService.fetchUserFromCloud(username);
+          if (cloudUser && cloudUser.password === password) {
+            matchedUser = cloudUser;
+            // Sync user locally
+            const existsIdx = localUsers.findIndex(u => u.username.toLowerCase() === cleanUsername);
+            if (existsIdx !== -1) {
+              localUsers[existsIdx] = cloudUser;
+            } else {
+              localUsers.push(cloudUser);
+            }
+            authService.saveUsers(localUsers);
+          }
+        } catch (err) {
+          console.warn('Could not fetch user from cloud:', err);
+        }
+      }
+
+      if (!matchedUser) {
+        setIsLoading(false);
+        setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
+        return;
+      }
+
+      // If credentials matched, check device permission (except for admin)
+      if (cleanUsername !== 'admin') {
+        const deviceId = authService.getDeviceId();
+        const deviceName = authService.getDeviceDetails();
+        
+        try {
+          let reqDoc = await firebaseService.getDeviceRequest(cleanUsername, deviceId);
+          if (!reqDoc) {
+            // First time login on this device/browser
+            reqDoc = await firebaseService.createDeviceRequest(cleanUsername, deviceId, deviceName);
+          }
+          
+          if (reqDoc) {
+            if (reqDoc.status === 'pending') {
+              setIsLoading(false);
+              setPendingApprovalInfo({ username: cleanUsername, deviceId, deviceName: reqDoc.deviceName || deviceName });
+              return;
+            } else if (reqDoc.status === 'rejected') {
+              setIsLoading(false);
+              setError('আপনার এই ডিভাইসটির অনুমোদন এডমিন দ্বারা প্রত্যাখ্যান করা হয়েছে!');
+              return;
+            }
+            // If approved, we fall through and log in!
+          }
+        } catch (err) {
+          console.error('Device checking error:', err);
+        }
+      }
+
+      // Complete login via authService
+      if (authService.login({ username: cleanUsername, password })) {
         setIsLoading(false);
         onLoginSuccess();
 
-        // Download the latest business data in the background without blocking the login transition
+        // Download latest business data in background
         (async () => {
           try {
-            const users = authService.getUsers();
-            const localUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
-            if (localUser) {
-              let masterUname = localUser.username;
-              if (localUser.role === 'staff' && localUser.createdBy) {
-                masterUname = localUser.createdBy;
-              }
-              await firebaseService.downloadBackupFromCloud(masterUname);
+            let masterUname = cleanUsername;
+            if (matchedUser && matchedUser.role === 'staff' && matchedUser.createdBy) {
+              masterUname = matchedUser.createdBy;
             }
+            await firebaseService.downloadBackupFromCloud(masterUname);
           } catch (err) {
             console.warn('Background backup download skipped or failed:', err);
           }
         })();
-        return;
+      } else {
+        setIsLoading(false);
+        setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
       }
-
-      // 2. If local login fails (e.g. brand new browser or password changed), fetch credentials from Cloud
-      try {
-        const cloudUser = await firebaseService.fetchUserFromCloud(username);
-        
-        if (cloudUser && cloudUser.password === password) {
-          // Sync this user to the local users list
-          const localUsers = authService.getUsers();
-          const existsIdx = localUsers.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
-          if (existsIdx !== -1) {
-            localUsers[existsIdx] = cloudUser;
-          } else {
-            localUsers.push(cloudUser);
-          }
-          authService.saveUsers(localUsers);
-
-          // Determine master account username to load correct data
-          let masterUname = username;
-          if (cloudUser.role === 'staff' && cloudUser.createdBy) {
-            masterUname = cloudUser.createdBy;
-          }
-
-          // Fetch the latest business data backup from Cloud for this master account
-          await firebaseService.downloadBackupFromCloud(masterUname);
-
-          // Now complete local login which will definitely succeed
-          if (authService.login({ username, password })) {
-            setIsLoading(false);
-            onLoginSuccess();
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Could not sync credentials from cloud during login:', err);
-      }
-
-      setIsLoading(false);
-      setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!');
     } else {
       const result = authService.signup({ username, password });
       setIsLoading(false);
@@ -99,6 +157,88 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
       }
     }
   };
+
+  if (pendingApprovalInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] relative overflow-hidden font-['Hind_Siliguri'] p-4">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-100/50 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-100/50 rounded-full blur-[120px]"></div>
+
+        <div className="max-w-[440px] w-full relative z-10 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[48px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] border border-white overflow-hidden">
+            
+            {/* Header Section */}
+            <div className="bg-slate-900 pt-10 pb-10 px-8 text-center relative overflow-hidden flex flex-col items-center">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-500 to-orange-600"></div>
+              
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-500 rounded-[28px] shadow-[0_12px_24px_-8px_rgba(245,158,11,0.5)] mb-4 animate-pulse">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-black text-white tracking-tight">ডিভাইস অনুমোদন প্রয়োজন</h1>
+              <p className="text-amber-400/80 text-[11px] font-bold uppercase tracking-[0.2em] mt-2">Device Approval Required</p>
+            </div>
+
+            {/* Content Section */}
+            <div className="px-10 py-12">
+              <div className="text-center mb-8">
+                <p className="text-slate-600 text-sm font-semibold leading-relaxed">
+                  আপনার ডিভাইসটি এখনো অনুমোদিত নয়। প্রথমবার লগইন করার জন্য আপনার প্রধান এডমিনের অনুমোদন প্রয়োজন।
+                </p>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4 mb-8">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">ইউজারনেম:</span>
+                  <span className="text-slate-700 font-black">{pendingApprovalInfo.username}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">ডিভাইস:</span>
+                  <span className="text-slate-700 font-black">{pendingApprovalInfo.deviceName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">অনুরোধের অবস্থা:</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    পেন্ডিং (Pending)
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={() => checkDeviceApprovalStatus(pendingApprovalInfo.username, pendingApprovalInfo.deviceId)}
+                  disabled={isCheckingApproval}
+                  className="w-full py-4.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 disabled:opacity-75"
+                >
+                  {isCheckingApproval ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      চেক করা হচ্ছে...
+                    </>
+                  ) : (
+                    'অনুমোদন স্ট্যাটাস চেক করুন'
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setPendingApprovalInfo(null)}
+                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all text-xs"
+                >
+                  লগইন স্ক্রিনে ফিরে যান
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] relative overflow-hidden font-['Hind_Siliguri'] p-4">

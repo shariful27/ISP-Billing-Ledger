@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, doc, setDoc, getDoc, getDocFromServer, collection, getDocs, getDocsFromServer, deleteDoc, DocumentReference, DocumentSnapshot, Query, QuerySnapshot } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { User } from '../types';
+import { User, DeviceRequest } from '../types';
 
 // Initialize Firebase
 export const app = initializeApp({
@@ -212,6 +212,86 @@ export const firebaseService = {
       return true;
     } catch (e) {
       console.error('Failed to download backup from cloud:', e);
+      return false;
+    }
+  },
+
+  // Get a specific device request status
+  getDeviceRequest: async (username: string, deviceId: string): Promise<DeviceRequest | null> => {
+    try {
+      const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
+      const docSnap = await robustGetDoc(doc(db, 'isp_device_permissions', uId));
+      if (docSnap.exists()) {
+        return docSnap.data() as DeviceRequest;
+      }
+      return null;
+    } catch (e) {
+      console.error('Failed to get device request:', e);
+      return null;
+    }
+  },
+
+  // Create or submit a new device request (initially pending)
+  createDeviceRequest: async (username: string, deviceId: string, deviceName: string): Promise<DeviceRequest | null> => {
+    try {
+      const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
+      const newRequest: DeviceRequest = {
+        id: uId,
+        username: username.trim().toLowerCase(),
+        deviceId: deviceId.trim(),
+        deviceName: deviceName,
+        status: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      await setDoc(doc(db, 'isp_device_permissions', uId), newRequest, { merge: true });
+      return newRequest;
+    } catch (e) {
+      console.error('Failed to create device request:', e);
+      return null;
+    }
+  },
+
+  // Fetch all device requests (useful for admin approval screen)
+  getAllDeviceRequests: async (): Promise<DeviceRequest[]> => {
+    try {
+      const querySnapshot = await robustGetDocs(collection(db, 'isp_device_permissions'));
+      const requests: DeviceRequest[] = [];
+      querySnapshot.forEach((docSnap) => {
+        requests.push(docSnap.data() as DeviceRequest);
+      });
+      return requests;
+    } catch (e) {
+      console.error('Failed to fetch all device requests:', e);
+      return [];
+    }
+  },
+
+  // Update status of a device request (approve or reject)
+  updateDeviceRequestStatus: async (username: string, deviceId: string, status: 'approved' | 'rejected'): Promise<boolean> => {
+    try {
+      const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
+      const docRef = doc(db, 'isp_device_permissions', uId);
+      const docSnap = await robustGetDoc(docRef);
+      if (docSnap.exists()) {
+        await setDoc(docRef, { status, updatedAt: Date.now() }, { merge: true });
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Failed to update device request status:', e);
+      return false;
+    }
+  },
+
+  // Delete a device request
+  deleteDeviceRequest: async (username: string, deviceId: string): Promise<boolean> => {
+    try {
+      const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
+      await deleteDoc(doc(db, 'isp_device_permissions', uId));
+      return true;
+    } catch (e) {
+      console.error('Failed to delete device request:', e);
       return false;
     }
   }

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserPermissions, SiteSettings } from '../types.ts';
 import { authService, DEFAULT_STAFF_PERMISSIONS } from '../services/authService.ts';
 import { storageService } from '../services/storageService.ts';
+import { firebaseService } from '../services/firebaseService';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -22,7 +23,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   const isMasterAdmin = currentUser?.username.toLowerCase() === 'admin';
   const isAdminRole = currentUser !== null;
-  const [activeTab, setActiveTab] = useState<'users' | 'branding' | 'pin'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'branding' | 'pin' | 'devices'>('users');
+
+  // Device Management State
+  const [deviceRequests, setDeviceRequests] = useState<any[]>([]);
+  const [isFetchingDevices, setIsFetchingDevices] = useState(false);
 
   // Authentication State for Hidden Panel
   const [pinInput, setPinInput] = useState('');
@@ -66,6 +71,26 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // License extension modal state
   const [licenseTargetUser, setLicenseTargetUser] = useState<string | null>(null);
   const [extendDaysInput, setExtendDaysInput] = useState<number>(30);
+
+  const fetchDevices = async () => {
+    setIsFetchingDevices(true);
+    try {
+      const list = await firebaseService.getAllDeviceRequests();
+      // Sort newest first
+      list.sort((a, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
+      setDeviceRequests(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetchingDevices(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && (isUnlocked || !isMasterAdmin)) {
+      fetchDevices();
+    }
+  }, [isOpen, isUnlocked, isMasterAdmin]);
 
   if (!isOpen) return null;
 
@@ -375,6 +400,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               >
                 <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 <span>🔑 {isMasterAdmin ? 'এডমিন পিন' : 'পাসওয়ার্ড পরিবর্তন'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('devices');
+                  fetchDevices();
+                }}
+                className={`py-3 px-3.5 sm:px-5 text-[11px] sm:text-xs font-black border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeTab === 'devices' 
+                    ? 'border-blue-600 text-blue-600 bg-white' 
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span>📱 ডিভাইস পারমিশন</span>
               </button>
             </div>
 
@@ -960,6 +1002,268 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   </form>
                 )
               )}
+
+              {/* TAB 4: DEVICE APPROVALS */}
+              {activeTab === 'devices' && (() => {
+                const allowedUsernames = filteredUsers.map(u => u.username.toLowerCase());
+                const filteredDeviceRequests = deviceRequests.filter(req => 
+                  isMasterAdmin || allowedUsernames.includes(req.username.toLowerCase())
+                );
+
+                return (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center border-b border-slate-150 pb-4">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800">ডিভাইস অনুমোদন প্যানেল</h3>
+                        <p className="text-[10px] text-slate-500 font-medium">নতুন ডিভাইস থেকে রিসেলার/স্টাফদের প্রথমবার লগইন করার অনুমোদন নিয়ন্ত্রণ করুন</p>
+                      </div>
+                      <button
+                        onClick={fetchDevices}
+                        disabled={isFetchingDevices}
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-black flex items-center gap-1 transition-all disabled:opacity-50"
+                      >
+                        <svg className={`w-3.5 h-3.5 ${isFetchingDevices ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.89M9 11l3-3m0 0l3 3m-3-3v8" />
+                        </svg>
+                        রিলোড করুন
+                      </button>
+                    </div>
+
+                    {isFetchingDevices ? (
+                      <div className="text-center py-12 space-y-3">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+                        <p className="text-xs text-slate-400 font-bold">মেঘ থেকে ডিভাইস ডাটা লোড হচ্ছে...</p>
+                      </div>
+                    ) : filteredDeviceRequests.length === 0 ? (
+                      <div className="text-center py-12 bg-slate-50 border border-slate-100 rounded-3xl">
+                        <span className="text-3xl">📱</span>
+                        <p className="text-xs text-slate-400 font-bold mt-2">কোনো ডিভাইস অনুমোদনের অনুরোধ পাওয়া যায়নি।</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Desktop Table view */}
+                        <div className="overflow-hidden border border-slate-150 rounded-2xl bg-white shadow-sm hidden md:block">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 tracking-wider border-b border-slate-150">
+                                <th className="py-4 px-6">ইউজারনেম</th>
+                                <th className="py-4 px-6">ডিভাইস ও ব্রাউজার</th>
+                                <th className="py-4 px-6">তারিখ ও সময়</th>
+                                <th className="py-4 px-6">স্ট্যাটাস</th>
+                                <th className="py-4 px-6 text-right">অ্যাকশন</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-150 text-xs">
+                              {filteredDeviceRequests.map((req) => (
+                                <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="py-4 px-6 font-black text-slate-800">{req.username}</td>
+                                  <td className="py-4 px-6 text-slate-600 font-bold max-w-[200px] truncate" title={req.deviceName}>
+                                    {req.deviceName || 'Unknown Device'}
+                                  </td>
+                                  <td className="py-4 px-6 text-slate-400 font-bold">
+                                    {req.createdAt ? new Date(req.createdAt).toLocaleString('bn-BD') : 'N/A'}
+                                  </td>
+                                  <td className="py-4 px-6">
+                                    {req.status === 'pending' && (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100">
+                                        পেন্ডিং
+                                      </span>
+                                    )}
+                                    {req.status === 'approved' && (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                        অনুমোদিত
+                                      </span>
+                                    )}
+                                    {req.status === 'rejected' && (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-50 text-red-600 border border-red-100">
+                                        বাতিল
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-4 px-6 text-right space-x-1.5 whitespace-nowrap">
+                                    {req.status === 'pending' && (
+                                      <>
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
+                                              await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
+                                              fetchDevices();
+                                            }
+                                          }}
+                                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] transition-all shadow-sm"
+                                        >
+                                          অনুমোদন করুন
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি বাতিল করতে চান?`)) {
+                                              await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'rejected');
+                                              fetchDevices();
+                                            }
+                                          }}
+                                          className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white font-black rounded-lg text-[10px] transition-all shadow-sm"
+                                        >
+                                          বাতিল করুন
+                                        </button>
+                                      </>
+                                    )}
+                                    {req.status !== 'pending' && (
+                                      <>
+                                        {req.status === 'approved' && (
+                                          <button
+                                            onClick={async () => {
+                                              if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটির অনুমোদন বাতিল করতে চান?`)) {
+                                                await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'rejected');
+                                                fetchDevices();
+                                              }
+                                            }}
+                                            className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-[10px] transition-all mr-1.5 shadow-sm"
+                                          >
+                                            অনুমোদন বাতিল করুন
+                                          </button>
+                                        )}
+                                        {req.status === 'rejected' && (
+                                          <button
+                                            onClick={async () => {
+                                              if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
+                                                await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
+                                                fetchDevices();
+                                              }
+                                            }}
+                                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] transition-all mr-1.5 shadow-sm"
+                                          >
+                                            অনুমোদন করুন
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm(`আপনি কি "${req.username}"-এর এই অনুমোদনের রেকর্ডটি ডিলিট করতে চান?`)) {
+                                              await firebaseService.deleteDeviceRequest(req.username, req.deviceId);
+                                              fetchDevices();
+                                            }
+                                          }}
+                                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 font-black rounded-lg text-[10px] transition-all"
+                                        >
+                                          ডিলিট করুন
+                                        </button>
+                                      </>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Card List view */}
+                        <div className="grid grid-cols-1 gap-4 md:hidden">
+                          {filteredDeviceRequests.map((req) => (
+                            <div key={req.id} className="bg-white border border-slate-150 rounded-2xl p-4.5 space-y-3 shadow-sm">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="text-xs font-black text-slate-800">{req.username}</h4>
+                                  <p className="text-[10px] text-slate-500 font-semibold mt-1">{req.deviceName || 'Unknown Device'}</p>
+                                </div>
+                                <div>
+                                  {req.status === 'pending' && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100">
+                                      পেন্ডিং
+                                    </span>
+                                  )}
+                                  {req.status === 'approved' && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                      অনুমোদিত
+                                    </span>
+                                  )}
+                                  {req.status === 'rejected' && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black bg-red-50 text-red-600 border border-red-100">
+                                      বাতিল
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <p className="text-[9px] text-slate-400 font-bold">
+                                তারিখ: {req.createdAt ? new Date(req.createdAt).toLocaleString('bn-BD') : 'N/A'}
+                              </p>
+
+                              <div className="flex gap-2 pt-2 border-t border-slate-100 justify-end">
+                                {req.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
+                                          await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
+                                          fetchDevices();
+                                        }
+                                      }}
+                                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
+                                    >
+                                      অনুমোদন
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি বাতিল করতে চান?`)) {
+                                          await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'rejected');
+                                          fetchDevices();
+                                        }
+                                      }}
+                                      className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
+                                    >
+                                      বাতিল
+                                    </button>
+                                  </>
+                                )}
+                                {req.status !== 'pending' && (
+                                  <>
+                                    {req.status === 'approved' && (
+                                      <button
+                                        onClick={async () => {
+                                          if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটির অনুমোদন বাতিল করতে চান?`)) {
+                                            await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'rejected');
+                                            fetchDevices();
+                                          }
+                                        }}
+                                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
+                                      >
+                                        অনুমোদন বাতিল
+                                      </button>
+                                    )}
+                                    {req.status === 'rejected' && (
+                                      <button
+                                        onClick={async () => {
+                                          if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
+                                            await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
+                                            fetchDevices();
+                                          }
+                                        }}
+                                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
+                                      >
+                                        অনুমোদন
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm(`আপনি কি "${req.username}"-এর এই অনুমোদনের রেকর্ডটি ডিলিট করতে চান?`)) {
+                                          await firebaseService.deleteDeviceRequest(req.username, req.deviceId);
+                                          fetchDevices();
+                                        }
+                                      }}
+                                      className="flex-1 py-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 font-black rounded-xl text-[10px] transition-all text-center"
+                                    >
+                                      ডিলিট
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             </div>
           </div>

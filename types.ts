@@ -20,6 +20,17 @@ export interface User {
   licenseDays?: number;
   licenseExpiryDate?: number;
   createdBy?: string;
+  createdAt?: number;
+}
+
+export interface DeviceRequest {
+  id: string; // username_deviceId
+  username: string;
+  deviceId: string;
+  deviceName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface SiteSettings {

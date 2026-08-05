@@ -283,6 +283,36 @@ export const authService = {
       return true;
     }
     return false;
+  },
+
+  getDeviceId: (): string => {
+    if (typeof window === 'undefined') return 'server';
+    let devId = localStorage.getItem('isp_device_id');
+    if (!devId) {
+      devId = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+      localStorage.setItem('isp_device_id', devId);
+    }
+    return devId;
+  },
+
+  getDeviceDetails: (): string => {
+    if (typeof window === 'undefined') return 'Server';
+    const ua = navigator.userAgent;
+    let os = "Unknown OS";
+    if (ua.indexOf("Win") !== -1) os = "Windows";
+    else if (ua.indexOf("Mac") !== -1) os = "MacOS";
+    else if (ua.indexOf("Android") !== -1) os = "Android";
+    else if (ua.indexOf("iPhone") !== -1) os = "iPhone";
+    else if (ua.indexOf("iPad") !== -1) os = "iPad";
+    else if (ua.indexOf("Linux") !== -1) os = "Linux";
+
+    let browser = "Unknown Browser";
+    if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+    else if (ua.indexOf("Safari") !== -1) browser = "Safari";
+    else if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+    else if (ua.indexOf("Edge") !== -1) browser = "Edge";
+    
+    return `${browser} on ${os}`;
   }
 };
 
