@@ -1,10 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { initializeFirestore, doc, setDoc, getDoc, getDocFromServer, collection, getDocs, getDocsFromServer, deleteDoc, DocumentReference, DocumentSnapshot, Query, QuerySnapshot } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { User } from '../types';
 
 // Initialize Firebase
-const app = initializeApp({
+export const app = initializeApp({
   apiKey: firebaseConfig.apiKey,
   authDomain: firebaseConfig.authDomain,
   projectId: firebaseConfig.projectId,
@@ -14,15 +14,54 @@ const app = initializeApp({
 });
 
 // Support custom database ID if present
-const db = firebaseConfig.firestoreDatabaseId
+export const db = firebaseConfig.firestoreDatabaseId
   ? initializeFirestore(app, { databaseId: firebaseConfig.firestoreDatabaseId })
   : initializeFirestore(app, {});
+
+// Helper to perform robust fetching with server fallback if client reports offline
+export const robustGetDoc = async (docRef: DocumentReference): Promise<DocumentSnapshot> => {
+  try {
+    return await getDoc(docRef);
+  } catch (error: any) {
+    console.warn('First getDoc attempt failed, trying getDocFromServer:', error);
+    const errMsg = error?.message?.toLowerCase() || '';
+    const errCode = error?.code || '';
+    if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed') || errCode === 'unavailable') {
+      try {
+        return await getDocFromServer(docRef);
+      } catch (srvError) {
+        console.error('getDocFromServer also failed:', srvError);
+        throw error;
+      }
+    }
+    throw error;
+  }
+};
+
+export const robustGetDocs = async (query: Query): Promise<QuerySnapshot> => {
+  try {
+    return await getDocs(query);
+  } catch (error: any) {
+    console.warn('First getDocs attempt failed, trying getDocsFromServer:', error);
+    const errMsg = error?.message?.toLowerCase() || '';
+    const errCode = error?.code || '';
+    if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed') || errCode === 'unavailable') {
+      try {
+        return await getDocsFromServer(query);
+      } catch (srvError) {
+        console.error('getDocsFromServer also failed:', srvError);
+        throw error;
+      }
+    }
+    throw error;
+  }
+};
 
 export const firebaseService = {
   // Sync all users from cloud to local storage (so they can log in offline or from any browser)
   syncUsersFromCloud: async (): Promise<void> => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'isp_users'));
+      const querySnapshot = await robustGetDocs(collection(db, 'isp_users'));
       const cloudUsers: User[] = [];
       querySnapshot.forEach((doc) => {
         cloudUsers.push(doc.data() as User);
@@ -99,7 +138,7 @@ export const firebaseService = {
     try {
       const cleanUsername = username.trim().toLowerCase();
       if (!cleanUsername) return null;
-      const docSnap = await getDoc(doc(db, 'isp_users', cleanUsername));
+      const docSnap = await robustGetDoc(doc(db, 'isp_users', cleanUsername));
       if (docSnap.exists()) {
         return docSnap.data() as User;
       }
@@ -147,7 +186,7 @@ export const firebaseService = {
       const uname = masterUsername.trim().toLowerCase();
       if (!uname) return false;
 
-      const docSnap = await getDoc(doc(db, 'isp_backups', uname));
+      const docSnap = await robustGetDoc(doc(db, 'isp_backups', uname));
       if (!docSnap.exists()) {
         console.log(`No cloud backup found for ${masterUsername}`);
         return false;

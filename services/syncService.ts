@@ -1,22 +1,7 @@
 import { storageService } from './storageService';
 import { authService } from './authService';
-import { initializeApp } from 'firebase/app';
-import { initializeFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
-
-// Initialize Firebase for syncService
-const app = initializeApp({
-  apiKey: firebaseConfig.apiKey,
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket,
-  messagingSenderId: firebaseConfig.messagingSenderId,
-  appId: firebaseConfig.appId,
-});
-
-const db = firebaseConfig.firestoreDatabaseId
-  ? initializeFirestore(app, { databaseId: firebaseConfig.firestoreDatabaseId })
-  : initializeFirestore(app, {});
+import { doc, setDoc } from 'firebase/firestore';
+import { db, robustGetDoc } from './firebaseService';
 
 export const syncService = {
   // Package all local ISP ledger data into a single object
@@ -98,7 +83,7 @@ export const syncService = {
     if (!trimmedCode) return false;
 
     try {
-      const docSnap = await getDoc(doc(db, 'isp_sync_codes', trimmedCode));
+      const docSnap = await robustGetDoc(doc(db, 'isp_sync_codes', trimmedCode));
       if (!docSnap.exists()) {
         throw new Error('ভুল কোড অথবা মেয়াদ শেষ হয়ে গেছে!');
       }
