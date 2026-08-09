@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, doc, setDoc, getDoc, getDocFromServer, collection, getDocs, getDocsFromServer, deleteDoc, DocumentReference, DocumentSnapshot, Query, QuerySnapshot } from 'firebase/firestore';
+import { initializeFirestore, doc, setDoc, getDoc, getDocFromServer, collection, getDocs, getDocsFromServer, deleteDoc, DocumentReference, DocumentSnapshot, Query, QuerySnapshot, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { User, DeviceRequest } from '../types';
 
@@ -13,24 +13,39 @@ export const app = initializeApp({
   appId: firebaseConfig.appId,
 });
 
-// Support custom database ID if present
+// Support custom database ID if present with offline persistent cache
 export const db = firebaseConfig.firestoreDatabaseId
-  ? initializeFirestore(app, { databaseId: firebaseConfig.firestoreDatabaseId })
-  : initializeFirestore(app, {});
+  ? initializeFirestore(app, {
+      databaseId: firebaseConfig.firestoreDatabaseId,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    })
+  : initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
 
 // Helper to perform robust fetching with server fallback if client reports offline
 export const robustGetDoc = async (docRef: DocumentReference): Promise<DocumentSnapshot> => {
   try {
     return await getDoc(docRef);
   } catch (error: any) {
-    console.warn('First getDoc attempt failed, trying getDocFromServer:', error);
+    console.warn('First getDoc attempt failed, checking fallback:', error);
     const errMsg = error?.message?.toLowerCase() || '';
     const errCode = error?.code || '';
+    
+    // If the browser is explicitly offline, do not attempt to contact server
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Failed to get document because the client is offline.');
+    }
+
     if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed') || errCode === 'unavailable') {
       try {
         return await getDocFromServer(docRef);
       } catch (srvError) {
-        console.error('getDocFromServer also failed:', srvError);
+        console.warn('getDocFromServer fallback also failed:', srvError);
         throw error;
       }
     }
@@ -42,14 +57,20 @@ export const robustGetDocs = async (query: Query): Promise<QuerySnapshot> => {
   try {
     return await getDocs(query);
   } catch (error: any) {
-    console.warn('First getDocs attempt failed, trying getDocsFromServer:', error);
+    console.warn('First getDocs attempt failed, checking fallback:', error);
     const errMsg = error?.message?.toLowerCase() || '';
     const errCode = error?.code || '';
+
+    // If the browser is explicitly offline, do not attempt to contact server
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Failed to get documents because the client is offline.');
+    }
+
     if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed') || errCode === 'unavailable') {
       try {
         return await getDocsFromServer(query);
       } catch (srvError) {
-        console.error('getDocsFromServer also failed:', srvError);
+        console.warn('getDocsFromServer fallback also failed:', srvError);
         throw error;
       }
     }
@@ -155,9 +176,9 @@ export const firebaseService = {
       const uname = masterUsername.trim().toLowerCase();
       if (!uname) return;
 
-      const billingKey = `isp_billing_data_v2_${masterUsername}`;
-      const settingsKey = `isp_site_settings_${masterUsername}`;
-      const expensesKey = `isp_daily_expenses_v1_${masterUsername}`;
+      const billingKey = `isp_billing_data_v2_${uname}`;
+      const settingsKey = `isp_site_settings_${uname}`;
+      const expensesKey = `isp_daily_expenses_v1_${uname}`;
 
       const billingDataStr = localStorage.getItem(billingKey) || '[]';
       const settingsDataStr = localStorage.getItem(settingsKey) || '{}';
@@ -201,9 +222,9 @@ export const firebaseService = {
         return true;
       }
 
-      const billingKey = `isp_billing_data_v2_${masterUsername}`;
-      const settingsKey = `isp_site_settings_${masterUsername}`;
-      const expensesKey = `isp_daily_expenses_v1_${masterUsername}`;
+      const billingKey = `isp_billing_data_v2_${uname}`;
+      const settingsKey = `isp_site_settings_${uname}`;
+      const expensesKey = `isp_daily_expenses_v1_${uname}`;
 
       if (data.customers) localStorage.setItem(billingKey, data.customers);
       if (data.settings) localStorage.setItem(settingsKey, data.settings);

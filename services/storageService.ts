@@ -18,11 +18,45 @@ export const storageService = {
       // Check if this user is a staff/child user created by another user
       const users = authService.getUsers();
       const currentUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+      let masterUname = username;
       if (currentUser && currentUser.createdBy && currentUser.createdBy.toLowerCase() !== 'admin') {
-        return currentUser.createdBy;
+        masterUname = currentUser.createdBy;
       }
 
-      return username;
+      const lowerUname = masterUname.toLowerCase();
+      
+      // If the master username has mixed case, migrate legacy keys to lowercased keys if they exist
+      if (masterUname !== lowerUname) {
+        const billingKeyMixed = `isp_billing_data_v2_${masterUname}`;
+        const billingKeyLower = `isp_billing_data_v2_${lowerUname}`;
+        const bData = localStorage.getItem(billingKeyMixed);
+        if (bData && !localStorage.getItem(billingKeyLower)) {
+          localStorage.setItem(billingKeyLower, bData);
+        }
+
+        const settingsKeyMixed = `isp_site_settings_${masterUname}`;
+        const settingsKeyLower = `isp_site_settings_${lowerUname}`;
+        const sData = localStorage.getItem(settingsKeyMixed);
+        if (sData && !localStorage.getItem(settingsKeyLower)) {
+          localStorage.setItem(settingsKeyLower, sData);
+        }
+
+        const expensesKeyMixed = `isp_daily_expenses_v1_${masterUname}`;
+        const expensesKeyLower = `isp_daily_expenses_v1_${lowerUname}`;
+        const eData = localStorage.getItem(expensesKeyMixed);
+        if (eData && !localStorage.getItem(expensesKeyLower)) {
+          localStorage.setItem(expensesKeyLower, eData);
+        }
+
+        const updatedKeyMixed = `isp_last_updated_${masterUname}`;
+        const updatedKeyLower = `isp_last_updated_${lowerUname}`;
+        const uData = localStorage.getItem(updatedKeyMixed);
+        if (uData && !localStorage.getItem(updatedKeyLower)) {
+          localStorage.setItem(updatedKeyLower, uData);
+        }
+      }
+
+      return lowerUname;
     } catch {
       return 'admin';
     }

@@ -31,9 +31,16 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
           setPendingApprovalInfo(null);
           // Complete standard login directly since they have correct local credentials
           if (authService.login({ username: uname, password })) {
-            onLoginSuccess();
-            // Background cloud backup load
-            firebaseService.downloadBackupFromCloud(uname).catch(err => console.warn(err));
+            // Force download full cloud data first before success!
+            (async () => {
+              try {
+                await firebaseService.downloadBackupFromCloud(uname, true);
+              } catch (err) {
+                console.warn(err);
+              } finally {
+                onLoginSuccess();
+              }
+            })();
           } else {
             setError('সিস্টেম রিস্টোর করতে সমস্যা হয়েছে, অনুগ্রহ করে আবার লগইন করুন।');
           }
@@ -127,10 +134,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
 
       // Complete login via authService
       if (authService.login({ username: cleanUsername, password })) {
-        setIsLoading(false);
-        onLoginSuccess();
-
-        // Download latest business data in background
+        // Download latest business data FIRST so that when they enter the dashboard, the data is ready!
         (async () => {
           try {
             let masterUname = cleanUsername;
@@ -140,6 +144,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
             await firebaseService.downloadBackupFromCloud(masterUname, true);
           } catch (err) {
             console.warn('Background backup download skipped or failed:', err);
+          } finally {
+            setIsLoading(false);
+            onLoginSuccess();
           }
         })();
       } else {
