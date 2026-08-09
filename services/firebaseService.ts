@@ -181,7 +181,7 @@ export const firebaseService = {
   },
 
   // Download and restore full business backup for a master username
-  downloadBackupFromCloud: async (masterUsername: string): Promise<boolean> => {
+  downloadBackupFromCloud: async (masterUsername: string, force = false): Promise<boolean> => {
     try {
       const uname = masterUsername.trim().toLowerCase();
       if (!uname) return false;
@@ -193,6 +193,14 @@ export const firebaseService = {
       }
 
       const data = docSnap.data();
+      const localLastUpdated = Number(localStorage.getItem(`isp_last_updated_${uname}`) || 0);
+
+      // Unless forced (like at login or manual sync), check if cloud has newer data
+      if (!force && data.lastUpdated && Number(data.lastUpdated) <= localLastUpdated) {
+        console.log(`Local backup is already up-to-date with cloud for ${masterUsername} (${localLastUpdated} >= ${data.lastUpdated})`);
+        return true;
+      }
+
       const billingKey = `isp_billing_data_v2_${masterUsername}`;
       const settingsKey = `isp_site_settings_${masterUsername}`;
       const expensesKey = `isp_daily_expenses_v1_${masterUsername}`;

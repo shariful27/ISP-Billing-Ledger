@@ -38,7 +38,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // 1. First sync user credentials list from cloud so they can login instantly on any new browser
-    firebaseService.syncUsersFromCloud().then(() => {
+    firebaseService.syncUsersFromCloud().then(async () => {
+      // If we are already logged in, fetch the latest backup from cloud to prevent starting with stale localStorage
+      const user = authService.getCurrentUser();
+      if (user) {
+        let masterUname = user.username;
+        if (user.role === 'staff' && user.createdBy) {
+          masterUname = user.createdBy;
+        }
+        try {
+          await firebaseService.downloadBackupFromCloud(masterUname, false);
+        } catch (err) {
+          console.warn('Initial backup load issue:', err);
+        }
+      }
       loadAllData();
     }).catch(e => {
       console.warn('Initial cloud sync warning:', e);
@@ -64,6 +77,7 @@ const App: React.FC = () => {
   }, [loadAllData]);
 
   // 2. Automatically sync backup to Cloud in the background whenever local changes are made (debounced)
+  // and periodically check for incoming cloud updates (polling)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -84,9 +98,23 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('isp_sync', handleCloudBackupSync);
+
+    // Periodically download latest backup from cloud if another device made edits (every 10 seconds)
+    const backupInterval = setInterval(async () => {
+      try {
+        const masterUname = storageService.getCurrentUsername();
+        if (masterUname) {
+          await firebaseService.downloadBackupFromCloud(masterUname, false);
+        }
+      } catch (e) {
+        console.warn('Background backup download issue:', e);
+      }
+    }, 10000); // every 10 seconds
+
     return () => {
       clearTimeout(syncTimeout);
       window.removeEventListener('isp_sync', handleCloudBackupSync);
+      clearInterval(backupInterval);
     };
   }, [currentUser]);
 

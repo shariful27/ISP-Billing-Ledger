@@ -137,7 +137,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
             if (matchedUser && matchedUser.role === 'staff' && matchedUser.createdBy) {
               masterUname = matchedUser.createdBy;
             }
-            await firebaseService.downloadBackupFromCloud(masterUname);
+            await firebaseService.downloadBackupFromCloud(masterUname, true);
           } catch (err) {
             console.warn('Background backup download skipped or failed:', err);
           }
