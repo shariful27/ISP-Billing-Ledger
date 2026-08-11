@@ -132,12 +132,8 @@ export const authService = {
 
   getCurrentUser: (): User | null => {
     try {
-      let stored = localStorage.getItem(AUTH_KEY);
-      if (!stored) {
-        // Auto-login as 'admin' to eliminate any login barrier!
-        localStorage.setItem(AUTH_KEY, JSON.stringify('admin'));
-        stored = JSON.stringify('admin');
-      }
+      const stored = localStorage.getItem(AUTH_KEY);
+      if (!stored) return null;
       let username = '';
       try {
         const parsed = JSON.parse(stored);
@@ -146,7 +142,7 @@ export const authService = {
         username = stored;
       }
 
-      if (!username) username = 'admin';
+      if (!username) return null;
       const users = authService.getUsers();
       const found = users.find(u => u.username.trim().toLowerCase() === username.trim().toLowerCase());
       if (found) return found;
@@ -157,11 +153,7 @@ export const authService = {
         permissions: username.toLowerCase() === 'admin' ? DEFAULT_ADMIN_USER.permissions : DEFAULT_STAFF_PERMISSIONS
       };
     } catch {
-      return {
-        username: 'admin',
-        role: 'admin',
-        permissions: DEFAULT_ADMIN_USER.permissions
-      };
+      return null;
     }
   },
 

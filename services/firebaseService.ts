@@ -78,6 +78,22 @@ export const robustGetDocs = async (query: Query): Promise<QuerySnapshot> => {
   }
 };
 
+export const safeLogError = (context: string, error: any) => {
+  const errMsg = error?.message?.toLowerCase() || '';
+  if (
+    errMsg.includes('offline') || 
+    errMsg.includes('network') || 
+    errMsg.includes('failed') || 
+    errMsg.includes('unavailable') ||
+    errMsg.includes('client is offline') ||
+    (typeof navigator !== 'undefined' && !navigator.onLine)
+  ) {
+    console.warn(`[Offline/Network] ${context}:`, errMsg);
+  } else {
+    console.error(`${context}:`, error);
+  }
+};
+
 export const firebaseService = {
   // Sync all users from cloud to local storage (so they can log in offline or from any browser)
   syncUsersFromCloud: async (): Promise<void> => {
@@ -115,7 +131,7 @@ export const firebaseService = {
         localStorage.setItem('isp_users_db', JSON.stringify(mergedUsers));
       }
     } catch (e) {
-      console.error('Failed to sync users from cloud:', e);
+      safeLogError('Failed to sync users from cloud', e);
     }
   },
 
@@ -139,7 +155,7 @@ export const firebaseService = {
         logoUrl: user.logoUrl || null,
       }, { merge: true });
     } catch (e) {
-      console.error('Failed to save user to cloud:', e);
+      safeLogError('Failed to save user to cloud', e);
     }
   },
 
@@ -150,7 +166,7 @@ export const firebaseService = {
       if (!cleanUsername) return;
       await deleteDoc(doc(db, 'isp_users', cleanUsername));
     } catch (e) {
-      console.error('Failed to delete user from cloud:', e);
+      safeLogError('Failed to delete user from cloud', e);
     }
   },
 
@@ -165,7 +181,7 @@ export const firebaseService = {
       }
       return null;
     } catch (e) {
-      console.error('Failed to fetch user from cloud:', e);
+      safeLogError('Failed to fetch user from cloud', e);
       return null;
     }
   },
@@ -197,7 +213,7 @@ export const firebaseService = {
 
       console.log(`Cloud backup completed for ${masterUsername}`);
     } catch (e) {
-      console.error('Failed to upload backup to cloud:', e);
+      safeLogError('Failed to upload backup to cloud', e);
     }
   },
 
@@ -240,7 +256,7 @@ export const firebaseService = {
       console.log(`Cloud backup restored for ${masterUsername}`);
       return true;
     } catch (e) {
-      console.error('Failed to download backup from cloud:', e);
+      safeLogError('Failed to download backup from cloud', e);
       return false;
     }
   },
@@ -255,7 +271,7 @@ export const firebaseService = {
       }
       return null;
     } catch (e) {
-      console.error('Failed to get device request:', e);
+      safeLogError('Failed to get device request', e);
       return null;
     }
   },
@@ -276,7 +292,7 @@ export const firebaseService = {
       await setDoc(doc(db, 'isp_device_permissions', uId), newRequest, { merge: true });
       return newRequest;
     } catch (e) {
-      console.error('Failed to create device request:', e);
+      safeLogError('Failed to create device request', e);
       return null;
     }
   },
@@ -291,7 +307,7 @@ export const firebaseService = {
       });
       return requests;
     } catch (e) {
-      console.error('Failed to fetch all device requests:', e);
+      safeLogError('Failed to fetch all device requests', e);
       return [];
     }
   },
@@ -308,7 +324,7 @@ export const firebaseService = {
       }
       return false;
     } catch (e) {
-      console.error('Failed to update device request status:', e);
+      safeLogError('Failed to update device request status', e);
       return false;
     }
   },
@@ -320,7 +336,7 @@ export const firebaseService = {
       await deleteDoc(doc(db, 'isp_device_permissions', uId));
       return true;
     } catch (e) {
-      console.error('Failed to delete device request:', e);
+      safeLogError('Failed to delete device request', e);
       return false;
     }
   }

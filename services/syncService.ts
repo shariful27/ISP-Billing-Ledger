@@ -1,7 +1,7 @@
 import { storageService } from './storageService';
 import { authService } from './authService';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, robustGetDoc } from './firebaseService';
+import { db, robustGetDoc, safeLogError } from './firebaseService';
 
 export const syncService = {
   // Package all local ISP ledger data into a single object
@@ -72,7 +72,7 @@ export const syncService = {
 
       return code;
     } catch (e) {
-      console.error('Failed to save cloud backup:', e);
+      safeLogError('Failed to save cloud backup', e);
       throw new Error('ক্লাউডে ব্যাকআপ কোড জেনারেট করতে ব্যর্থ হয়েছে!');
     }
   },
@@ -98,7 +98,7 @@ export const syncService = {
       }
       return false;
     } catch (e: any) {
-      console.error('Failed to restore from cloud backup:', e);
+      safeLogError('Failed to restore from cloud backup', e);
       throw new Error(e.message || 'ভুল কোড অথবা মেয়াদ শেষ হয়ে গেছে!');
     }
   }
