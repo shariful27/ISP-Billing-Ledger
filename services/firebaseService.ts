@@ -313,13 +313,42 @@ export const firebaseService = {
   },
 
   // Update status of a device request (approve or reject)
-  updateDeviceRequestStatus: async (username: string, deviceId: string, status: 'approved' | 'rejected'): Promise<boolean> => {
+  updateDeviceRequestStatus: async (
+    username: string, 
+    deviceId: string, 
+    status: 'approved' | 'rejected', 
+    permissions?: UserPermissions, 
+    createdBy?: string
+  ): Promise<boolean> => {
     try {
       const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
       const docRef = doc(db, 'isp_device_permissions', uId);
       const docSnap = await robustGetDoc(docRef);
       if (docSnap.exists()) {
-        await setDoc(docRef, { status, updatedAt: Date.now() }, { merge: true });
+        const updateData: any = { status, updatedAt: Date.now() };
+        if (permissions) {
+          updateData.permissions = permissions;
+        }
+        await setDoc(docRef, updateData, { merge: true });
+
+        // Auto-create user in cloud collection when approved!
+        if (status === 'approved') {
+          const cleanUsername = username.trim().toLowerCase();
+          await setDoc(doc(db, 'isp_users', cleanUsername), {
+            username: cleanUsername,
+            role: 'staff',
+            permissions: permissions || {
+              canAddCustomer: false,
+              canEditCustomer: false,
+              canDeleteCustomer: false,
+              canAddPayment: false,
+              canBulkImport: false,
+              canExpense: false
+            },
+            createdBy: createdBy || 'admin',
+            createdAt: Date.now()
+          }, { merge: true });
+        }
         return true;
       }
       return false;

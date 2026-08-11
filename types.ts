@@ -31,6 +31,7 @@ export interface DeviceRequest {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: number;
   updatedAt: number;
+  permissions?: UserPermissions;
 }
 
 export interface SiteSettings {

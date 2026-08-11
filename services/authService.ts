@@ -126,6 +126,41 @@ export const authService = {
     return false;
   },
 
+  loginApprovedDevice: (deviceUser: { username: string; permissions?: UserPermissions }): boolean => {
+    const users = authService.getUsers();
+    const cleanUsername = deviceUser.username.trim().toLowerCase();
+    
+    // Add or update this user in the local user list
+    let localUser = users.find(u => u.username.toLowerCase() === cleanUsername);
+    if (!localUser) {
+      localUser = {
+        username: cleanUsername,
+        role: 'staff',
+        permissions: deviceUser.permissions || {
+          canAddCustomer: false,
+          canEditCustomer: false,
+          canDeleteCustomer: false,
+          canAddPayment: false,
+          canBulkImport: false,
+          canExpense: false
+        },
+        createdAt: Date.now()
+      };
+      users.push(localUser);
+    } else if (deviceUser.permissions) {
+      localUser.permissions = deviceUser.permissions;
+    }
+    
+    // Save to local storage
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+    localStorage.setItem(AUTH_KEY, JSON.stringify(cleanUsername));
+    
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('isp_sync'));
+    }
+    return true;
+  },
+
   logout: () => {
     localStorage.removeItem(AUTH_KEY);
   },

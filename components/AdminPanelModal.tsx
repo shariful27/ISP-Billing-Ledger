@@ -72,6 +72,25 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [licenseTargetUser, setLicenseTargetUser] = useState<string | null>(null);
   const [extendDaysInput, setExtendDaysInput] = useState<number>(30);
 
+  // Device Approval Custom Permissions State
+  const [approvingRequest, setApprovingRequest] = useState<any | null>(null);
+  const [approvalPermissions, setApprovalPermissions] = useState<{
+    canAddCustomer: boolean;
+    canEditCustomer: boolean;
+    canDeleteCustomer: boolean;
+    canAddPayment: boolean;
+    canBulkImport: boolean;
+    canExpense: boolean;
+  }>({
+    canAddCustomer: true,
+    canEditCustomer: true,
+    canDeleteCustomer: false,
+    canAddPayment: true,
+    canBulkImport: false,
+    canExpense: true
+  });
+  const [isFinalizingApproval, setIsFinalizingApproval] = useState(false);
+
   const fetchDevices = async () => {
     setIsFetchingDevices(true);
     try {
@@ -83,6 +102,31 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       console.error(e);
     } finally {
       setIsFetchingDevices(false);
+    }
+  };
+
+  const handleDeviceApprovalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approvingRequest) return;
+    setIsFinalizingApproval(true);
+    try {
+      await firebaseService.updateDeviceRequestStatus(
+        approvingRequest.username, 
+        approvingRequest.deviceId, 
+        'approved', 
+        approvalPermissions, 
+        currentUser?.username || 'admin'
+      );
+      
+      // Refresh local users
+      handleRefreshUsers();
+      
+      fetchDevices();
+      setApprovingRequest(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsFinalizingApproval(false);
     }
   };
 
@@ -1084,11 +1128,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                     {req.status === 'pending' && (
                                       <>
                                         <button
-                                          onClick={async () => {
-                                            if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
-                                              await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
-                                              fetchDevices();
-                                            }
+                                          onClick={() => {
+                                            setApprovingRequest(req);
+                                            setApprovalPermissions({
+                                              canAddCustomer: true,
+                                              canEditCustomer: true,
+                                              canDeleteCustomer: false,
+                                              canAddPayment: true,
+                                              canBulkImport: false,
+                                              canExpense: true
+                                            });
                                           }}
                                           className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] transition-all shadow-sm"
                                         >
@@ -1124,11 +1173,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                         )}
                                         {req.status === 'rejected' && (
                                           <button
-                                            onClick={async () => {
-                                              if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
-                                                await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
-                                                fetchDevices();
-                                              }
+                                            onClick={() => {
+                                              setApprovingRequest(req);
+                                              setApprovalPermissions({
+                                                canAddCustomer: true,
+                                                canEditCustomer: true,
+                                                canDeleteCustomer: false,
+                                                canAddPayment: true,
+                                                canBulkImport: false,
+                                                canExpense: true
+                                              });
                                             }}
                                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] transition-all mr-1.5 shadow-sm"
                                           >
@@ -1191,11 +1245,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                 {req.status === 'pending' && (
                                   <>
                                     <button
-                                      onClick={async () => {
-                                        if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
-                                          await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
-                                          fetchDevices();
-                                        }
+                                      onClick={() => {
+                                        setApprovingRequest(req);
+                                        setApprovalPermissions({
+                                          canAddCustomer: true,
+                                          canEditCustomer: true,
+                                          canDeleteCustomer: false,
+                                          canAddPayment: true,
+                                          canBulkImport: false,
+                                          canExpense: true
+                                        });
                                       }}
                                       className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
                                     >
@@ -1231,11 +1290,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                     )}
                                     {req.status === 'rejected' && (
                                       <button
-                                        onClick={async () => {
-                                          if (confirm(`আপনি কি "${req.username}"-এর এই ডিভাইসটি অনুমোদন করতে চান?`)) {
-                                            await firebaseService.updateDeviceRequestStatus(req.username, req.deviceId, 'approved');
-                                            fetchDevices();
-                                          }
+                                        onClick={() => {
+                                          setApprovingRequest(req);
+                                          setApprovalPermissions({
+                                            canAddCustomer: true,
+                                            canEditCustomer: true,
+                                            canDeleteCustomer: false,
+                                            canAddPayment: true,
+                                            canBulkImport: false,
+                                            canExpense: true
+                                          });
                                         }}
                                         className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-[10px] transition-all shadow-sm text-center"
                                       >
@@ -1342,6 +1406,125 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-bold text-xs"
                 >
                   মেয়াদ বৃদ্ধি করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Device Approval Modal (Choose Permissions) */}
+      {approvingRequest && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[300]">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div>
+              <h3 className="font-black text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                <span className="text-xl">📱</span>
+                ডিভাইস অনুমোদন ও পারমিশন সেটিংস
+              </h3>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                গ্রাহক: <span className="text-slate-800 font-black">{approvingRequest.username}</span> • ডিভাইস: {approvingRequest.deviceName}
+              </p>
+            </div>
+
+            <form onSubmit={handleDeviceApprovalSubmit} className="space-y-5">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3.5 max-h-[320px] overflow-y-auto">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">এই ইউজারের কি কি কাজের অনুমতি থাকবে?</p>
+                
+                {/* Checkbox item */}
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canAddCustomer}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canAddCustomer: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">নতুন গ্রাহক যোগ করা (Add Client)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">নতুন গ্রাহকদের আইপি বা আইডি লিজারে সংযুক্ত করার অনুমতি</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canEditCustomer}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canEditCustomer: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">গ্রাহকের তথ্য এডিট করা (Edit Client)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">গ্রাহকের মোবাইল, মাসিক বিল বা জোন পরিবর্তনের অনুমতি</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canDeleteCustomer}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canDeleteCustomer: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">গ্রাহক ডিলিট করা (Delete Client)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">লিজার থেকে কোনো গ্রাহককে মুছে ফেলার অনুমতি</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canAddPayment}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canAddPayment: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">পেমেন্ট ও বিল কালেক্ট করা (Add Payments)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">বিল আদায় করা এবং গ্রাহকের মাসিক রেকর্ড আপডেট করার অনুমতি</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canBulkImport}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canBulkImport: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">একত্রে অনেক গ্রাহক ইম্পোর্ট করা (Bulk Import)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">এক্সেল বা সিএসভি থেকে গ্রাহক তালিকা যুক্ত করার অনুমতি</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5"
+                    checked={approvalPermissions.canExpense}
+                    onChange={e => setApprovalPermissions({ ...approvalPermissions, canExpense: e.target.checked })}
+                  />
+                  <div>
+                    <p className="text-xs font-black text-slate-700">দৈনিক খরচ এন্ট্রি করা (Expense Manager)</p>
+                    <p className="text-[9px] text-slate-400 font-bold">অফিস এবং অন্যান্য ক্যাশ খরচের হিসাব এন্ট্রি করার অনুমতি</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setApprovingRequest(null)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-2xl font-bold text-xs transition-all active:scale-95"
+                >
+                  বাতিল করুন
+                </button>
+                <button
+                  type="submit"
+                  disabled={isFinalizingApproval}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1"
+                >
+                  {isFinalizingApproval ? 'অনুমোদন হচ্ছে...' : 'অনুমোদন নিশ্চিত করুন'}
                 </button>
               </div>
             </form>
