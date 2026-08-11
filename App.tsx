@@ -14,9 +14,12 @@ import { SyncModal } from './components/SyncModal.tsx';
 import { firebaseService } from './services/firebaseService.ts';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
   const [settings, setSettings] = useState<SiteSettings>(() => storageService.getSettings());
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const user = authService.getCurrentUser();
+    return user ? storageService.getCustomers() : [];
+  });
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -31,7 +34,10 @@ const App: React.FC = () => {
       setCurrentUser(user);
       setCustomers(storageService.getCustomers());
     } else {
-      setCurrentUser(null);
+      // Fallback to default admin if somehow null
+      const defaultAdmin = authService.getCurrentUser();
+      setCurrentUser(defaultAdmin);
+      setCustomers(storageService.getCustomers());
     }
     setSettings(storageService.getSettings());
   }, []);
@@ -281,16 +287,6 @@ const App: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v8" />
                 </svg>
                 <span className="hidden md:inline">ব্যাকআপ ও সিঙ্ক</span>
-             </button>
-
-             {/* Logout Button */}
-             <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-white p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all font-bold text-xs"
-              title="লগআউট"
-             >
-               <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-               <span className="hidden sm:inline">লগআউট</span>
              </button>
           </div>
         </div>
