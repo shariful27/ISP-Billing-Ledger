@@ -118,7 +118,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         currentUser?.username || 'admin'
       );
       
-      // Refresh local users
+      // Auto sync cloud users to local db instantly
+      try {
+        await firebaseService.syncUsersFromCloud();
+      } catch (err) {
+        console.warn('Sync users from cloud failed on approval:', err);
+      }
+      
+      // Refresh local users list
       handleRefreshUsers();
       
       fetchDevices();

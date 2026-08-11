@@ -265,7 +265,14 @@ export const firebaseService = {
   getDeviceRequest: async (username: string, deviceId: string): Promise<DeviceRequest | null> => {
     try {
       const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
-      const docSnap = await robustGetDoc(doc(db, 'isp_device_permissions', uId));
+      let docSnap;
+      try {
+        // Try to get fresh copy directly from server to bypass offline cache issues
+        docSnap = await getDocFromServer(doc(db, 'isp_device_permissions', uId));
+      } catch (err) {
+        console.warn('getDocFromServer failed, falling back to cache:', err);
+        docSnap = await robustGetDoc(doc(db, 'isp_device_permissions', uId));
+      }
       if (docSnap.exists()) {
         return docSnap.data() as DeviceRequest;
       }
@@ -300,7 +307,14 @@ export const firebaseService = {
   // Fetch all device requests (useful for admin approval screen)
   getAllDeviceRequests: async (): Promise<DeviceRequest[]> => {
     try {
-      const querySnapshot = await robustGetDocs(collection(db, 'isp_device_permissions'));
+      let querySnapshot;
+      try {
+        // Try fresh copy directly from server to bypass offline cache issues
+        querySnapshot = await getDocsFromServer(collection(db, 'isp_device_permissions'));
+      } catch (err) {
+        console.warn('getDocsFromServer failed, falling back to cache:', err);
+        querySnapshot = await robustGetDocs(collection(db, 'isp_device_permissions'));
+      }
       const requests: DeviceRequest[] = [];
       querySnapshot.forEach((docSnap) => {
         requests.push(docSnap.data() as DeviceRequest);
@@ -323,35 +337,33 @@ export const firebaseService = {
     try {
       const uId = `${username.trim().toLowerCase()}_${deviceId.trim()}`;
       const docRef = doc(db, 'isp_device_permissions', uId);
-      const docSnap = await robustGetDoc(docRef);
-      if (docSnap.exists()) {
-        const updateData: any = { status, updatedAt: Date.now() };
-        if (permissions) {
-          updateData.permissions = permissions;
-        }
-        await setDoc(docRef, updateData, { merge: true });
-
-        // Auto-create user in cloud collection when approved!
-        if (status === 'approved') {
-          const cleanUsername = username.trim().toLowerCase();
-          await setDoc(doc(db, 'isp_users', cleanUsername), {
-            username: cleanUsername,
-            role: 'staff',
-            permissions: permissions || {
-              canAddCustomer: false,
-              canEditCustomer: false,
-              canDeleteCustomer: false,
-              canAddPayment: false,
-              canBulkImport: false,
-              canExpense: false
-            },
-            createdBy: createdBy || 'admin',
-            createdAt: Date.now()
-          }, { merge: true });
-        }
-        return true;
+      
+      const updateData: any = { status, updatedAt: Date.now() };
+      if (permissions) {
+        updateData.permissions = permissions;
       }
-      return false;
+      // Set the status directly to avoid cache-existence check blocks
+      await setDoc(docRef, updateData, { merge: true });
+
+      // Auto-create user in cloud collection when approved!
+      if (status === 'approved') {
+        const cleanUsername = username.trim().toLowerCase();
+        await setDoc(doc(db, 'isp_users', cleanUsername), {
+          username: cleanUsername,
+          role: 'staff',
+          permissions: permissions || {
+            canAddCustomer: false,
+            canEditCustomer: false,
+            canDeleteCustomer: false,
+            canAddPayment: false,
+            canBulkImport: false,
+            canExpense: false
+          },
+          createdBy: createdBy || 'admin',
+          createdAt: Date.now()
+        }, { merge: true });
+      }
+      return true;
     } catch (e) {
       safeLogError('Failed to update device request status', e);
       return false;

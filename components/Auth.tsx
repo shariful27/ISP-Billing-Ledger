@@ -57,6 +57,41 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
     checkExistingPending();
   }, [onLoginSuccess]);
 
+  // Auto-poll approval status every 5 seconds when pending screen is visible
+  useEffect(() => {
+    if (!pendingApprovalInfo) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const reqDoc = await firebaseService.getDeviceRequest(pendingApprovalInfo.username, pendingApprovalInfo.deviceId);
+        if (reqDoc && reqDoc.status === 'approved') {
+          clearInterval(intervalId);
+          setPendingApprovalInfo(null);
+          authService.loginApprovedDevice({ 
+            username: pendingApprovalInfo.username, 
+            permissions: reqDoc.permissions 
+          });
+          try {
+            await firebaseService.downloadBackupFromCloud('admin', true);
+          } catch (err) {
+            console.warn(err);
+          } finally {
+            onLoginSuccess();
+          }
+        } else if (reqDoc && reqDoc.status === 'rejected') {
+          clearInterval(intervalId);
+          setPendingApprovalInfo(null);
+          setError('আপনার এই ডিভাইসটির অনুমোদন এডমিন দ্বারা প্রত্যাখ্যান করা হয়েছে!');
+          localStorage.removeItem('isp_pending_username');
+        }
+      } catch (err) {
+        console.warn('Auto checking approval status failed:', err);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, [pendingApprovalInfo, onLoginSuccess]);
+
   const checkDeviceApprovalStatus = async (uname: string, devId: string) => {
     setIsCheckingApproval(true);
     setError('');
