@@ -72,6 +72,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [licenseTargetUser, setLicenseTargetUser] = useState<string | null>(null);
   const [extendDaysInput, setExtendDaysInput] = useState<number>(30);
 
+  // Share Magic Link Modal State
+  const [shareLinkUser, setShareLinkUser] = useState<User | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Helper to generate direct login Magic Link
+  const getMagicLoginLink = (u: User) => {
+    if (typeof window === 'undefined') return '';
+    const origin = window.location.origin;
+    const path = window.location.pathname;
+    const token = btoa(encodeURIComponent(`${u.username}:${u.password || ''}`));
+    return `${origin}${path}?user=${encodeURIComponent(u.username)}&token=${encodeURIComponent(token)}`;
+  };
+
   // Device Approval Custom Permissions State
   const [approvingRequest, setApprovingRequest] = useState<any | null>(null);
   const [approvalPermissions, setApprovalPermissions] = useState<{
@@ -778,6 +791,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                                 <td className="p-3.5 text-right">
                                   <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShareLinkUser(u);
+                                        setCopiedLink(false);
+                                      }}
+                                      className="text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors shadow-sm"
+                                      title="ডিরেক্ট লগইন লিঙ্ক ও শেয়ার অপশন"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                      </svg>
+                                      <span>🔗 লিঙ্ক</span>
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => setResetTargetUser(u.username)}
@@ -1535,6 +1562,117 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Share Reseller Magic Login Link Modal */}
+      {shareLinkUser && (
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center p-4 z-[320]">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-100 shadow-sm">
+                  🔗
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-base sm:text-lg">
+                    রিসেলার ডিরেক্ট লগইন লিঙ্ক
+                  </h3>
+                  <p className="text-xs text-slate-400 font-bold">
+                    ইউজার: <span className="text-blue-600 font-black">{shareLinkUser.username}</span> {shareLinkUser.fullName && `(${shareLinkUser.fullName})`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShareLinkUser(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Link Box */}
+            <div className="space-y-2">
+              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                ম্যাজিক লগইন লিঙ্ক (যেকোনো মোবাইল বা ব্রাউজার থেকে চলবে):
+              </label>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={getMagicLoginLink(shareLinkUser)}
+                  className="bg-transparent text-xs text-slate-700 font-mono font-medium outline-none flex-1 truncate select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = getMagicLoginLink(shareLinkUser);
+                    navigator.clipboard.writeText(link);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 3000);
+                  }}
+                  className={`text-xs px-3.5 py-2 rounded-xl font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                    copiedLink ? 'bg-emerald-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {copiedLink ? (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                      <span>কপি হয়েছে!</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                      <span>কপি করুন</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* WhatsApp Share Button */}
+            <div className="pt-1">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`আসসালামু আলাইকুম, ISP বিলিং পোর্টালে আপনার ডিরেক্ট লগইন লিঙ্ক:\n\n${getMagicLoginLink(shareLinkUser)}\n\n(যেকোনো ব্রাউজারে লিঙ্কে ক্লিক করলেই সাথে সাথে লগইন হয়ে যাবে)`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl transition-all shadow-md active:scale-98 text-xs flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                </svg>
+                <span>হোয়াটসঅ্যাপে (WhatsApp) লিঙ্ক পাঠান</span>
+              </a>
+            </div>
+
+            {/* How it works instruction box */}
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+              <h4 className="font-black text-slate-700 text-xs flex items-center gap-1.5">
+                <span>💡</span> কিভাবে ব্যবহার করবেন:
+              </h4>
+              <ul className="text-[11px] text-slate-500 space-y-1.5 leading-relaxed font-medium">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>ডিরেক্ট লিঙ্ক:</strong> এই লিঙ্কটি কপি করে রিসেলারকে দিয়ে দিন। সে মোবাইল, কম্পিউটার বা যেকোনো ব্রাউজারে ক্লিক করলেই কোনো অনুমোদন বা পাসওয়ার্ড ছাড়াই সরাসরি লগইন হয়ে যাবে।</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>পাসওয়ার্ড দিয়ে লগইন:</strong> রিসেলার চাইলে লগইন পেইজে গিয়ে <em>"🔑 পাসওয়ার্ড দিয়ে যেকোনো ডিভাইস থেকে সরাসরি লগইন"</em> অপশনে ক্লিক করে নিজের নাম ও পাসওয়ার্ড <strong>({shareLinkUser.password || 'পাসওয়ার্ড সেট করা নেই'})</strong> লিখেও সরাসরি যেকোনো ডিভাইসে ঢুকতে পারবে।</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShareLinkUser(null)}
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
           </div>
         </div>
       )}

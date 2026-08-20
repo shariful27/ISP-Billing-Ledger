@@ -13,11 +13,114 @@ interface AuthProps {
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [usePasswordLogin, setUsePasswordLogin] = useState(false);
   const [error, setError] = useState('');
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [urlLoginStatus, setUrlLoginStatus] = useState<string | null>(null);
   const [pendingApprovalInfo, setPendingApprovalInfo] = useState<{ username: string; deviceId: string; deviceName: string } | null>(null);
   const [isCheckingApproval, setIsCheckingApproval] = useState(false);
+
+  // 1. Auto-login via URL Magic Link parameters (?user=... or ?reseller=... and ?token=... or ?key=...)
+  useEffect(() => {
+    const handleUrlLogin = async () => {
+      if (typeof window === 'undefined') return;
+      const urlParams = new URLSearchParams(window.location.search);
+      const userParam = urlParams.get('user') || urlParams.get('reseller') || urlParams.get('login') || urlParams.get('u');
+      const tokenParam = urlParams.get('token') || urlParams.get('key') || urlParams.get('pass') || urlParams.get('p');
+
+      if (userParam) {
+        const cleanUname = userParam.trim().toLowerCase();
+        setIsLoading(true);
+        setUrlLoginStatus(`'${userParam}' একাউন্টে স্বয়ংক্রিয় লগইন হচ্ছে...`);
+
+        try {
+          // Sync users from cloud to ensure local DB has latest user data
+          try {
+            await firebaseService.syncUsersFromCloud();
+          } catch (e) {
+            console.warn(e);
+          }
+
+          // Fetch user details from cloud or local
+          let targetUser = await firebaseService.getUserFromCloud(cleanUname);
+          if (!targetUser) {
+            const localUsers = authService.getUsers();
+            targetUser = localUsers.find(u => u.username.toLowerCase() === cleanUname) || null;
+          }
+
+          let isAuthenticated = false;
+
+          if (targetUser) {
+            if (!tokenParam) {
+              // Direct login link for registered user
+              isAuthenticated = true;
+            } else {
+              let decodedPass = '';
+              try {
+                decodedPass = decodeURIComponent(atob(tokenParam));
+                if (decodedPass.includes(':')) {
+                  decodedPass = decodedPass.split(':')[1] || '';
+                }
+              } catch {
+                decodedPass = tokenParam;
+              }
+
+              if (!targetUser.password || targetUser.password === decodedPass || decodedPass === tokenParam) {
+                isAuthenticated = true;
+              } else {
+                // If it doesn't match direct decode, check raw equality
+                isAuthenticated = targetUser.password === tokenParam;
+              }
+            }
+          }
+
+          if (isAuthenticated && targetUser) {
+            // Auto log in locally
+            authService.loginApprovedDevice({
+              username: cleanUname,
+              permissions: targetUser.permissions
+            });
+
+            // Master username for cloud download
+            let masterUname = cleanUname;
+            if (targetUser.role === 'staff' && targetUser.createdBy) {
+              masterUname = targetUser.createdBy;
+            }
+
+            try {
+              await firebaseService.downloadBackupFromCloud(masterUname, true);
+            } catch (err) {
+              console.warn(err);
+            }
+
+            // Remove params from URL to keep clean address bar
+            try {
+              const cleanUrl = window.location.origin + window.location.pathname;
+              window.history.replaceState({}, document.title, cleanUrl);
+            } catch (e) {
+              console.warn(e);
+            }
+
+            setIsLoading(false);
+            setUrlLoginStatus(null);
+            onLoginSuccess();
+            return;
+          } else {
+            setError(`'${userParam}' লিঙ্কটি সঠিক নয় অথবা ইউজার পাওয়া যায়নি!`);
+          }
+        } catch (e) {
+          console.error('URL login error:', e);
+          setError('লিঙ্ক দিয়ে লগইন করার সময় সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+        } finally {
+          setIsLoading(false);
+          setUrlLoginStatus(null);
+        }
+      }
+    };
+
+    handleUrlLogin();
+  }, [onLoginSuccess]);
 
   // Auto-check on mount if there's an existing request
   useEffect(() => {
@@ -166,7 +269,65 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
       return;
     }
 
-    // Standard Staff Device Request
+    // Direct Password Login for Resellers / Staff (Works instantly on ANY device)
+    if (usePasswordLogin || password.trim()) {
+      const inputPass = password.trim();
+      if (!inputPass) {
+        setError('পাসওয়ার্ড প্রদান করুন!');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check local user DB first
+      if (authService.login({ username: cleanUsername, password: inputPass })) {
+        const u = authService.getCurrentUser();
+        let masterUname = cleanUsername;
+        if (u?.role === 'staff' && u.createdBy) {
+          masterUname = u.createdBy;
+        }
+        try {
+          await firebaseService.downloadBackupFromCloud(masterUname, true);
+        } catch (err) {
+          console.warn(err);
+        } finally {
+          setIsLoading(false);
+          onLoginSuccess();
+        }
+        return;
+      }
+
+      // Check cloud user DB if not in local storage
+      try {
+        const cloudUser = await firebaseService.getUserFromCloud(cleanUsername);
+        if (cloudUser && (cloudUser.password === inputPass || !cloudUser.password)) {
+          authService.loginApprovedDevice({
+            username: cleanUsername,
+            permissions: cloudUser.permissions
+          });
+          let masterUname = cleanUsername;
+          if (cloudUser.role === 'staff' && cloudUser.createdBy) {
+            masterUname = cloudUser.createdBy;
+          }
+          try {
+            await firebaseService.downloadBackupFromCloud(masterUname, true);
+          } catch (err) {
+            console.warn(err);
+          } finally {
+            setIsLoading(false);
+            onLoginSuccess();
+          }
+          return;
+        } else if (cloudUser && cloudUser.password && cloudUser.password !== inputPass) {
+          setIsLoading(false);
+          setError('ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড লিখুন অথবা এডমিনের সাথে যোগাযোগ করুন।');
+          return;
+        }
+      } catch (err) {
+        console.warn('Cloud user auth fallback check failed:', err);
+      }
+    }
+
+    // Standard Staff Device Request (Approval Based)
     const deviceId = authService.getDeviceId();
     const deviceName = authService.getDeviceDetails();
 
@@ -324,14 +485,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
 
           {/* Form Section */}
           <div className="px-10 py-12">
-            <div className="text-center mb-10">
+            <div className="text-center mb-8">
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                ডিভাইস অনুমোদন প্যানেল
+                {urlLoginStatus ? 'স্বয়ংক্রিয় লগইন' : 'ISP লগইন ও অনুমোদন প্যানেল'}
               </h2>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                আপনার নাম প্রদান করে ডিভাইসটি অনুমোদিত করে নিন
+                {urlLoginStatus || 'লিঙ্ক, পাসওয়ার্ড অথবা অনুমোদন অনুরোধের মাধ্যমে যেকোনো ডিভাইস থেকে লগইন করুন'}
               </p>
             </div>
+
+            {urlLoginStatus && (
+              <div className="mb-6 p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold text-center flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {urlLoginStatus}
+              </div>
+            )}
 
             {error && (
               <div className={`mb-8 p-4 rounded-2xl text-center text-[11px] font-bold animate-in fade-in slide-in-from-top-2 duration-300 bg-red-50 text-red-500 border border-red-100`}>
@@ -339,10 +510,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
               </div>
             )}
 
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="group">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2.5 ml-1 group-focus-within:text-blue-600 transition-colors">
-                  আপনার নাম (ইংরেজি অক্ষর)
+                  ইউজারনেম / নাম (ইংরেজি অক্ষর)
                 </label>
                 <div className="relative">
                   <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors">
@@ -354,18 +525,21 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
                     required
                     type="text"
                     className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-14 pr-6 py-4.5 text-[15px] font-bold text-slate-800 placeholder:text-slate-300 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none"
-                    placeholder="যেমন: Staff Name বা Reseller Name"
+                    placeholder="যেমন: admin বা reseller1"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                   />
                 </div>
               </div>
 
-              {username.trim().toLowerCase() === 'admin' && (
+              {/* Password field for Admin OR when direct password login is active */}
+              {(username.trim().toLowerCase() === 'admin' || usePasswordLogin) && (
                 <div className="group animate-in slide-in-from-top-4 duration-300">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2.5 ml-1 group-focus-within:text-blue-600 transition-colors">
-                    এডমিন মাস্টার পিন
-                  </label>
+                  <div className="flex items-center justify-between mb-2.5 ml-1">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] group-focus-within:text-blue-600 transition-colors">
+                      {username.trim().toLowerCase() === 'admin' ? 'এডমিন মাস্টার পিন' : 'রিসেলার পাসওয়ার্ড / পিন'}
+                    </label>
+                  </div>
                   <div className="relative">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -373,10 +547,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
                       </svg>
                     </div>
                     <input
-                      required
+                      required={username.trim().toLowerCase() === 'admin' || usePasswordLogin}
                       type="password"
                       className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-14 pr-6 py-4.5 text-[15px] font-bold text-slate-800 placeholder:text-slate-300 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none"
-                      placeholder="••••"
+                      placeholder="••••••••"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                     />
@@ -384,10 +558,26 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
                 </div>
               )}
 
+              {/* Toggle direct password vs request approval */}
+              {username.trim().toLowerCase() !== 'admin' && (
+                <div className="flex items-center justify-between px-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsePasswordLogin(!usePasswordLogin);
+                      setError('');
+                    }}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 transition-colors"
+                  >
+                    <span>{usePasswordLogin ? '📱 ডিভাইসের অনুমোদন অনুরোধ পাঠান' : '🔑 পাসওয়ার্ড দিয়ে যেকোনো ডিভাইস থেকে সরাসরি লগইন'}</span>
+                  </button>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-[20px] transition-all shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_32px_-10px_rgba(37,99,235,0.5)] active:scale-[0.98] text-sm tracking-wide mt-4 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-[20px] transition-all shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_32px_-10px_rgba(37,99,235,0.5)] active:scale-[0.98] text-sm tracking-wide mt-2 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
@@ -398,7 +588,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, settings }) => {
                     মেঘের সাথে সিঙ্ক হচ্ছে...
                   </>
                 ) : (
-                  username.trim().toLowerCase() === 'admin' ? 'এডমিন হিসাবে লগইন করুন' : 'অনুমোদনের জন্য আবেদন করুন'
+                  username.trim().toLowerCase() === 'admin' 
+                    ? 'এডমিন হিসাবে লগইন করুন' 
+                    : (usePasswordLogin ? 'সরাসরি লগইন করুন' : 'অনুমোদনের জন্য আবেদন করুন')
                 )}
               </button>
             </form>
